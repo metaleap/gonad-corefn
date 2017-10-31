@@ -16,13 +16,14 @@ type psBowerFile struct {
 
 	Gonad struct { // all settings in here apply to all Deps equally as they do to the main Proj --- ie. the former get a copy of the latter, ignoring their own Gonad field even if present
 		In struct {
-			CoreFnDumpsDirPath string // dir path containing Some.Module.QName/corefn.json files
+			CoreFilesDirPath string // dir path containing Some.Module.QName/corefn.json files
 		}
 		Out struct {
-			DumpAst      bool   // dumps an additional gonad.ast.json next to gonad.json
-			MainDepLevel int    // temporary option
-			GoDirSrcPath string // defaults to the first `GOPATH` found that has a `src` sub-directory
-			GoNamespace  string // defaults to github.com/gonadz/ps2go (or github.com\gonadz\ps2go under Windows). only used to construct psBowerProject.GoOut.PkgDirPath
+			DumpAst         bool   // dumps an additional gonad.ast.json next to gonad.json
+			MainDepLevel    int    // temporary option
+			GoDirSrcPath    string // defaults to the first `GOPATH` found that has a `src` sub-directory
+			GoNamespaceProj string
+			GoNamespaceDeps string
 		}
 		CodeGen struct {
 			// TypeClasses2Interfaces bool
@@ -88,11 +89,11 @@ func (me *psBowerProject) loadFromJsonFile() (err error) {
 		if isdep {
 			cfg = &Proj.BowerJsonFile.Gonad
 		} else {
-			if cfg.In.CoreFnDumpsDirPath == "" {
-				cfg.In.CoreFnDumpsDirPath = "output"
+			if cfg.In.CoreFilesDirPath == "" {
+				cfg.In.CoreFilesDirPath = "output"
 			}
-			if cfg.Out.GoNamespace == "" {
-				cfg.Out.GoNamespace = filepath.Join("github.com", "gonadz", "ps2go")
+			if cfg.Out.GoNamespaceProj == "" {
+				panic("missing in bower.json: `Gonad{Out{GoNamespaceProj=\"...\"}}` setting (the directory path relative to either your GOPATH or the specified `Gonad{Out{GoDirSrcPath=\"...\"}}`)")
 			}
 			if cfg.Out.GoDirSrcPath == "" {
 				for _, gopath := range udevgo.AllGoPaths() {
@@ -109,24 +110,27 @@ func (me *psBowerProject) loadFromJsonFile() (err error) {
 		}
 		if err == nil {
 			// proceed
-			me.GoOut.PkgDirPath = cfg.Out.GoNamespace
-			if repourl := me.BowerJsonFile.RepositoryURLParsed(); repourl != nil && repourl.Path != "" {
-				if i := strings.LastIndex(repourl.Path, "."); i > 0 {
-					me.GoOut.PkgDirPath = filepath.Join(cfg.Out.GoNamespace, repourl.Path[:i])
-				} else {
-					me.GoOut.PkgDirPath = filepath.Join(cfg.Out.GoNamespace, repourl.Path)
+			me.GoOut.PkgDirPath = cfg.Out.GoNamespaceProj
+			if isdep && cfg.Out.GoNamespaceDeps != "" {
+				me.GoOut.PkgDirPath = cfg.Out.GoNamespaceDeps
+				if repourl := me.BowerJsonFile.RepositoryURLParsed(); repourl != nil && repourl.Path != "" {
+					if i := strings.LastIndex(repourl.Path, "."); i > 0 {
+						me.GoOut.PkgDirPath = filepath.Join(cfg.Out.GoNamespaceDeps, repourl.Path[:i])
+					} else {
+						me.GoOut.PkgDirPath = filepath.Join(cfg.Out.GoNamespaceDeps, repourl.Path)
+					}
 				}
-			}
-			if me.GoOut.PkgDirPath = strings.Trim(me.GoOut.PkgDirPath, "/\\"); !strings.HasSuffix(me.GoOut.PkgDirPath, me.BowerJsonFile.Name) {
-				me.GoOut.PkgDirPath = filepath.Join(me.GoOut.PkgDirPath, me.BowerJsonFile.Name)
-			}
-			if me.BowerJsonFile.Version != "" {
-				me.GoOut.PkgDirPath = filepath.Join(me.GoOut.PkgDirPath, me.BowerJsonFile.Version)
+				if me.GoOut.PkgDirPath = strings.Trim(me.GoOut.PkgDirPath, "/\\"); !strings.HasSuffix(me.GoOut.PkgDirPath, me.BowerJsonFile.Name) {
+					me.GoOut.PkgDirPath = filepath.Join(me.GoOut.PkgDirPath, me.BowerJsonFile.Name)
+				}
+				if me.BowerJsonFile.Version != "" {
+					me.GoOut.PkgDirPath = filepath.Join(me.GoOut.PkgDirPath, me.BowerJsonFile.Version)
+				}
 			}
 			gopkgdir := filepath.Join(cfg.Out.GoDirSrcPath, me.GoOut.PkgDirPath)
 			ufs.WalkAllFiles(me.SrcDirPath, func(relpath string) bool {
 				if relpath = strings.TrimLeft(relpath[len(me.SrcDirPath):], "\\/"); strings.HasSuffix(relpath, ".purs") {
-					me.addModPkgFromPsSrcFileIfCoreFn(relpath, gopkgdir)
+					me.addModPkgFromPsSrcFileIfCoreFiles(relpath, gopkgdir)
 				}
 				return true
 			})
@@ -138,29 +142,33 @@ func (me *psBowerProject) loadFromJsonFile() (err error) {
 	return
 }
 
-func (me *psBowerProject) addModPkgFromPsSrcFileIfCoreFn(relpath string, gopkgdir string) {
+func (me *psBowerProject) addModPkgFromPsSrcFileIfCoreFiles(relpath string, gopkgdir string) {
 	i, l, opt := strings.LastIndexAny(relpath, "/\\"), len(relpath)-5, Proj.BowerJsonFile.Gonad
 	modinfo := &modPkg{
 		proj: me, srcFilePath: filepath.Join(me.SrcDirPath, relpath),
 		qName: strReplFsSlash2Dot.Replace(relpath[:l]), lName: relpath[i+1 : l],
 	}
-	if modinfo.cfnFilePath = filepath.Join(opt.In.CoreFnDumpsDirPath, modinfo.qName, "corefn.json"); ufs.FileExists(modinfo.cfnFilePath) {
-		modinfo.pName = strReplDot2ꓸ.Replace(modinfo.qName)
-		modinfo.extFilePath = filepath.Join(opt.In.CoreFnDumpsDirPath, modinfo.qName, "externs.json")
-		modinfo.irMetaFilePath = filepath.Join(opt.In.CoreFnDumpsDirPath, modinfo.qName, "gonad.json")
-		modinfo.goOutDirPath = relpath[:l]
-		modinfo.goOutFilePath = filepath.Join(modinfo.goOutDirPath, modinfo.qName) + ".go"
-		modinfo.gopkgfilepath = filepath.Join(gopkgdir, modinfo.goOutFilePath)
-		if ufs.FileExists(modinfo.irMetaFilePath) && ufs.FileExists(modinfo.gopkgfilepath) {
-			stalemetaˇcfn, _ := ufs.IsNewerThan(modinfo.cfnFilePath, modinfo.irMetaFilePath)
-			stalepkgˇcfn, _ := ufs.IsNewerThan(modinfo.cfnFilePath, modinfo.gopkgfilepath)
-			stalemetaˇext, _ := ufs.IsNewerThan(modinfo.extFilePath, modinfo.irMetaFilePath)
-			stalepkgˇext, _ := ufs.IsNewerThan(modinfo.extFilePath, modinfo.gopkgfilepath)
-			modinfo.reGenIr = stalemetaˇcfn || stalepkgˇcfn || stalemetaˇext || stalepkgˇext
-		} else {
-			modinfo.reGenIr = true
+	if modinfo.impFilePath = filepath.Join(opt.In.CoreFilesDirPath, modinfo.qName, "coreimp.json"); ufs.FileExists(modinfo.impFilePath) {
+		if modinfo.cfnFilePath = filepath.Join(opt.In.CoreFilesDirPath, modinfo.qName, "corefn.json"); ufs.FileExists(modinfo.cfnFilePath) {
+			modinfo.pName = strReplDot2ꓸ.Replace(modinfo.qName)
+			modinfo.extFilePath = filepath.Join(opt.In.CoreFilesDirPath, modinfo.qName, "externs.json")
+			modinfo.irMetaFilePath = filepath.Join(opt.In.CoreFilesDirPath, modinfo.qName, "gonad.json")
+			modinfo.goOutDirPath = relpath[:l]
+			modinfo.goOutFilePath = filepath.Join(modinfo.goOutDirPath, modinfo.qName) + ".go"
+			modinfo.gopkgfilepath = filepath.Join(gopkgdir, modinfo.goOutFilePath)
+			if ufs.FileExists(modinfo.irMetaFilePath) && ufs.FileExists(modinfo.gopkgfilepath) {
+				stalemetaˇimp, _ := ufs.IsNewerThan(modinfo.impFilePath, modinfo.irMetaFilePath)
+				stalepkgˇimp, _ := ufs.IsNewerThan(modinfo.impFilePath, modinfo.gopkgfilepath)
+				stalemetaˇcfn, _ := ufs.IsNewerThan(modinfo.cfnFilePath, modinfo.irMetaFilePath)
+				stalepkgˇcfn, _ := ufs.IsNewerThan(modinfo.cfnFilePath, modinfo.gopkgfilepath)
+				stalemetaˇext, _ := ufs.IsNewerThan(modinfo.extFilePath, modinfo.irMetaFilePath)
+				stalepkgˇext, _ := ufs.IsNewerThan(modinfo.extFilePath, modinfo.gopkgfilepath)
+				modinfo.reGenIr = stalemetaˇimp || stalepkgˇimp || stalemetaˇcfn || stalepkgˇcfn || stalemetaˇext || stalepkgˇext
+			} else {
+				modinfo.reGenIr = true
+			}
+			me.Modules = append(me.Modules, modinfo)
 		}
-		me.Modules = append(me.Modules, modinfo)
 	}
 }
 
@@ -210,19 +218,17 @@ func (me *psBowerProject) reGenModPkirAsts() {
 	me.forAll(func(wg *sync.WaitGroup, modinfo *modPkg) {
 		defer wg.Done()
 		if modinfo.reGenIr || Flag.ForceAll {
-			if err := modinfo.reGenPkirAst(); err != nil {
-				panic(err)
-			}
+			modinfo.reGenPkgIrAst()
 		}
 	})
 }
 
-func (me *psBowerProject) writeOutFiles() (err error) {
+func (me *psBowerProject) writeOutFiles() {
 	me.forAll(func(wg *sync.WaitGroup, m *modPkg) {
 		defer wg.Done()
 		if m.irMeta.isDirty || m.reGenIr || Flag.ForceAll {
 			//	maybe gonad.json
-			err = m.writeIrMetaFile()
+			err := m.writeIrMetaFile()
 			if err == nil && (m.reGenIr || Flag.ForceAll) {
 				//	maybe gonad.ast.json
 				if Proj.BowerJsonFile.Gonad.Out.DumpAst {

@@ -7,6 +7,7 @@ import (
 	"io"
 	"sort"
 
+	"github.com/metaleap/go-util/dev/ps"
 	"github.com/metaleap/go-util/str"
 )
 
@@ -49,8 +50,8 @@ type irA interface {
 }
 
 type irABase struct {
-	irANamedTypeRef                   // don't use all of this, but exprs with names and/or types do as needed
-	Comments        []*coreImpComment `json:",omitempty"`
+	irANamedTypeRef                       // don't use all of this, but exprs with names and/or types do as needed
+	Comments        []*udevps.CoreComment `json:",omitempty"`
 	parent          irA
 	root            *irAst // usually nil but set in top-level irABlock. for the rare occasions a irA impl needs this, it uses Ast() which traverses parents to the root then stores in ast --- rather than passing the root to all irA constructors etc
 }
@@ -539,9 +540,9 @@ func (me *irAIf) condNegates(other *irAIf) bool {
 		oop = nil
 	}
 	if mop == nil && oop != nil {
-		return me.If.Equiv(oop.Of) // always true so far, but coreimp output formats can always change, so we test correctly
+		return me.If.Equiv(oop.Of)
 	} else if mop != nil && oop == nil {
-		return mop.Of.Equiv(other.If) // dito
+		return mop.Of.Equiv(other.If)
 	}
 	return false
 }

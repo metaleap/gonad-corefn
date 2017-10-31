@@ -115,7 +115,6 @@ func walk(ast irA, intofuncvals bool, on funcIra2Ira) irA {
 	if ast != nil {
 		switch a := ast.(type) {
 		// why extra nil checks some places below: we do have the rare case of ast!=nil and ast.(type) set and still holding a null-ptr
-		// why not everywhere: due to the nature of the ASTs constructed from coreimp, only those cases can potentially be nil if they exist at all
 		case *irABlock:
 			if a != nil {
 				for i, _ := range a.Body {
