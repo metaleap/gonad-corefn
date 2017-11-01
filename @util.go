@@ -20,7 +20,7 @@ const (
 )
 
 var (
-	//ꓸ۰٠ᛌ
+	//ꓸ۰٠ᛌᚲ
 	strReplˈ2Slash      = strings.NewReplacer("ˈ", "/")
 	strReplDot2ˈ        = strings.NewReplacer(".", "ˈ")
 	strReplDot2ꓸ        = strings.NewReplacer(".", "ꓸ")

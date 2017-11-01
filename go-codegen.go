@@ -13,7 +13,8 @@ import (
 )
 
 const (
-	dbgEmitEmptyFuncs = false
+	areOverlappingInterfacesSupportedByGo = true // technically would be false, see https://github.com/golang/go/issues/6977 --- in practice keep true until it's an actual issue in generated code
+	dbgEmitEmptyFuncs                     = false
 )
 
 func (_ *irAst) codeGenCommaIf(w io.Writer, i int) {

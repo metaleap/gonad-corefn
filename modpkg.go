@@ -64,6 +64,7 @@ func (me *modPkg) impPath() string {
 }
 
 func (me *modPkg) loadPkgIrMeta() (err error) {
+	return
 	var jsonbytes []byte
 	if jsonbytes, err = ioutil.ReadFile(me.irMetaFilePath); err == nil {
 		if err = json.Unmarshal(jsonbytes, &me.irMeta); err == nil {
@@ -87,6 +88,7 @@ func (me *modPkg) reGenPkgIrMeta() (err error) {
 		if err = json.Unmarshal(jsonbytes, &me.ext); err == nil {
 			if jsonbytes, err = ioutil.ReadFile(me.impFilePath); err == nil {
 				if err = json.Unmarshal(jsonbytes, &me.coreimp); err == nil {
+					me.coreimp.My.ImpFilePath = me.impFilePath
 					if jsonbytes, err = ioutil.ReadFile(me.cfnFilePath); err == nil {
 						if err = json.Unmarshal(jsonbytes, &me.corefn); err == nil {
 							me.irMeta = &irMeta{isDirty: true, mod: me, proj: me.proj}
@@ -119,11 +121,6 @@ func (me *modPkg) writeGoFile() (err error) {
 		if err = me.irAst.writeAsGoTo(&buf); err == nil {
 			err = ufs.WriteBinaryFile(me.gopkgfilepath, buf.Bytes())
 		}
-	}
-	if !ufs.FileExists(me.gopkgfilepath) {
-		panic(me.gopkgfilepath)
-	} else {
-		println("EXISTS:\t" + me.gopkgfilepath)
 	}
 	return
 }
