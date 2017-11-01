@@ -12,10 +12,10 @@ import (
 )
 
 var (
-	exprTypeInt  = &irGoNamedTypeRef{RefAlias: "Prim.Int"}
-	exprTypeNum  = &irGoNamedTypeRef{RefAlias: "Prim.Number"}
-	exprTypeStr  = &irGoNamedTypeRef{RefAlias: "Prim.String"}
-	exprTypeBool = &irGoNamedTypeRef{RefAlias: "Prim.Boolean"}
+	exprTypeInt  = &irGoNamedTypeRef{RefAlias: &irGoTypeRefAlias{Q: "Prim.Int"}}
+	exprTypeNum  = &irGoNamedTypeRef{RefAlias: &irGoTypeRefAlias{Q: "Prim.Number"}}
+	exprTypeStr  = &irGoNamedTypeRef{RefAlias: &irGoTypeRefAlias{Q: "Prim.String"}}
+	exprTypeBool = &irGoNamedTypeRef{RefAlias: &irGoTypeRefAlias{Q: "Prim.Boolean"}}
 )
 
 type irAst struct {
@@ -727,7 +727,7 @@ type irAToType struct {
 
 func (me *irAToType) ExprType() *irGoNamedTypeRef {
 	if !me.hasTypeInfo() {
-		me.copyTypeInfoFrom(&irGoNamedTypeRef{RefAlias: ustr.PrefixWithSep(me.TypePkg, ".", me.TypeName)})
+		me.copyTypeInfoFrom(&irGoNamedTypeRef{RefAlias: &irGoTypeRefAlias{Q: ustr.PrefixWithSep(me.TypePkg, ".", me.TypeName)}})
 	}
 	return &me.irGoNamedTypeRef
 }
@@ -756,7 +756,7 @@ func (me *irAPkgSym) ExprType() *irGoNamedTypeRef {
 			}
 		}
 		if !me.hasTypeInfo() {
-			me.copyTypeInfoFrom(&irGoNamedTypeRef{RefAlias: ustr.PrefixWithSep(me.PkgName, ".", me.Symbol)})
+			me.copyTypeInfoFrom(&irGoNamedTypeRef{RefAlias: &irGoTypeRefAlias{Q: ustr.PrefixWithSep(me.PkgName, ".", me.Symbol)}})
 		}
 	}
 	return &me.irGoNamedTypeRef

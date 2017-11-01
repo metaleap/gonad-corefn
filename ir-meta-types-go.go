@@ -43,8 +43,7 @@ type irGoNamedTypeRef struct {
 	NamePs string `json:",omitempty"`
 	NameGo string `json:",omitempty"`
 
-	RefAlias     string                `json:",omitempty"`
-	RefUnknown   int                   `json:",omitempty"`
+	RefAlias     *irGoTypeRefAlias     `json:",omitempty"`
 	RefInterface *irGoTypeRefInterface `json:",omitempty"`
 	RefFunc      *irGoTypeRefFunc      `json:",omitempty"`
 	RefStruct    *irGoTypeRefStruct    `json:",omitempty"`
@@ -57,7 +56,7 @@ type irGoNamedTypeRef struct {
 }
 
 func (me *irGoNamedTypeRef) clearTypeInfo() {
-	me.RefAlias, me.RefUnknown, me.RefInterface, me.RefFunc, me.RefStruct, me.RefArray, me.RefPtr = "", 0, nil, nil, nil, nil, nil
+	me.RefAlias, me.RefInterface, me.RefFunc, me.RefStruct, me.RefArray, me.RefPtr = nil, nil, nil, nil, nil, nil
 }
 
 func (me *irGoNamedTypeRef) copyFrom(from *irGoNamedTypeRef, names bool, trefs bool, export bool) {
@@ -65,7 +64,7 @@ func (me *irGoNamedTypeRef) copyFrom(from *irGoNamedTypeRef, names bool, trefs b
 		me.NameGo, me.NamePs = from.NameGo, from.NamePs
 	}
 	if trefs {
-		me.RefAlias, me.RefUnknown, me.RefInterface, me.RefFunc, me.RefStruct, me.RefArray, me.RefPtr = from.RefAlias, from.RefUnknown, from.RefInterface, from.RefFunc, from.RefStruct, from.RefArray, from.RefPtr
+		me.RefAlias, me.RefInterface, me.RefFunc, me.RefStruct, me.RefArray, me.RefPtr = from.RefAlias, from.RefInterface, from.RefFunc, from.RefStruct, from.RefArray, from.RefPtr
 	}
 	if export {
 		me.Export = from.Export
@@ -83,7 +82,7 @@ func (me *irGoNamedTypeRef) nameless() (copy *irGoNamedTypeRef) {
 }
 
 func (me *irGoNamedTypeRef) equiv(cmp *irGoNamedTypeRef) bool {
-	return (me == nil && cmp == nil) || (me != nil && cmp != nil && me.RefAlias == cmp.RefAlias && me.RefUnknown == cmp.RefUnknown && me.RefInterface.equiv(cmp.RefInterface) && me.RefFunc.equiv(cmp.RefFunc) && me.RefStruct.equiv(cmp.RefStruct) && me.RefArray.equiv(cmp.RefArray) && me.RefPtr.equiv(cmp.RefPtr))
+	return (me == nil && cmp == nil) || (me != nil && cmp != nil && me.RefAlias.equiv(cmp.RefAlias) && me.RefInterface.equiv(cmp.RefInterface) && me.RefFunc.equiv(cmp.RefFunc) && me.RefStruct.equiv(cmp.RefStruct) && me.RefArray.equiv(cmp.RefArray) && me.RefPtr.equiv(cmp.RefPtr))
 }
 
 func (me *irGoNamedTypeRef) hasName() bool {
@@ -98,7 +97,7 @@ func (me *irGoNamedTypeRef) hasTypeInfoBeyondEmptyIface() (welltyped bool) {
 }
 
 func (me *irGoNamedTypeRef) hasTypeInfo() bool {
-	return me != nil && me.RefAlias != "" || me.RefArray != nil || me.RefFunc != nil || me.RefInterface != nil || me.RefPtr != nil || me.RefStruct != nil || me.RefUnknown != 0
+	return me != nil && (me.RefAlias != nil || me.RefArray != nil || me.RefFunc != nil || me.RefInterface != nil || me.RefPtr != nil || me.RefStruct != nil)
 }
 
 func (me *irGoNamedTypeRef) setBothNamesFromPsName(psname string) {
@@ -115,7 +114,6 @@ func (me *irGoNamedTypeRef) setRefFrom(tref interface{}) {
 		me.RefInterface = tr.RefInterface
 		me.RefPtr = tr.RefPtr
 		me.RefStruct = tr.RefStruct
-		me.RefUnknown = tr.RefUnknown
 	case *irGoTypeRefInterface:
 		me.RefInterface = tr
 	case *irGoTypeRefFunc:
@@ -126,9 +124,7 @@ func (me *irGoNamedTypeRef) setRefFrom(tref interface{}) {
 		me.RefArray = tr
 	case *irGoTypeRefPtr:
 		me.RefPtr = tr
-	case int:
-		me.RefUnknown = tr
-	case string:
+	case *irGoTypeRefAlias:
 		me.RefAlias = tr
 	case nil:
 	default:
@@ -139,7 +135,15 @@ func (me *irGoNamedTypeRef) setRefFrom(tref interface{}) {
 func (me *irGoNamedTypeRef) turnRefIntoRefPtr() {
 	refptr := &irGoTypeRefPtr{Of: &irGoNamedTypeRef{}}
 	refptr.Of.copyTypeInfoFrom(me)
-	me.RefAlias, me.RefArray, me.RefFunc, me.RefInterface, me.RefPtr, me.RefStruct, me.RefUnknown = "", nil, nil, nil, refptr, nil, 0
+	me.RefAlias, me.RefArray, me.RefFunc, me.RefInterface, me.RefPtr, me.RefStruct = nil, nil, nil, nil, refptr, nil
+}
+
+type irGoTypeRefAlias struct {
+	Q string
+}
+
+func (me *irGoTypeRefAlias) equiv(cmp *irGoTypeRefAlias) bool {
+	return (me == nil && cmp == nil) || (me != nil && cmp != nil && me.Q == cmp.Q)
 }
 
 type irGoTypeRefArray struct {

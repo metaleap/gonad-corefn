@@ -206,7 +206,7 @@ func (me *irMeta) populateGoValDecls() {
 			for _, gtd := range me.GoTypeDefs {
 				if gtd.RefStruct != nil && gtd.RefStruct.equiv(gvd.RefStruct) {
 					gvd.RefStruct = nil
-					gvd.RefAlias = me.mod.qName + "." + gtd.NamePs
+					gvd.RefAlias = &irGoTypeRefAlias{Q: me.mod.qName + "." + gtd.NamePs}
 				}
 			}
 		}

@@ -91,7 +91,7 @@ func (me *irMeta) toIrGoDataDefs(typedatadecls []*irPsTypeDataDef) (gtds irGoNam
 					ctor.ŧ.NamePs = ctor.Name
 					for ia, ctorarg := range ctor.Args {
 						field := &irGoNamedTypeRef{}
-						if field.setRefFrom(me.toIrGoTypeRef(tdict, ctorarg.Type)); field.RefAlias == (me.mod.qName + "." + ctor.Name) {
+						if field.setRefFrom(me.toIrGoTypeRef(tdict, ctorarg.Type)); field.RefAlias != nil && field.RefAlias.Q == (me.mod.qName+"."+ctor.Name) {
 							//	an inconstructable self-recursive type, aka Data.Void
 							field.turnRefIntoRefPtr()
 						}
@@ -109,14 +109,6 @@ func (me *irMeta) toIrGoDataDefs(typedatadecls []*irPsTypeDataDef) (gtds irGoNam
 }
 
 func (me *irMeta) toIrGoTypeRef(tdict map[string][]string, tref *irPsTypeRef) interface{} {
-	// funcyhackery := func(ret *irPsTypeRef) interface{} {
-	// 	funtype := &irGoTypeRefFunc{}
-	// 	funtype.Args = irGoNamedTypeRefs{&irGoNamedTypeRef{}}
-	// 	funtype.Args[0].setRefFrom(me.toIrGoTypeRef(tdict, tr.TypeApp.Left.TypeApp.Right))
-	// 	funtype.Rets = irGoNamedTypeRefs{&irGoNamedTypeRef{}}
-	// 	funtype.Rets[0].setRefFrom(me.toIrGoTypeRef(tdict, ret))
-	// 	return funtype
-	// }
 	tAppl := tref.A
 	tConstr := tref.C
 	tEmpty := tref.E
@@ -128,7 +120,7 @@ func (me *irMeta) toIrGoTypeRef(tdict map[string][]string, tref *irPsTypeRef) in
 	tVar := tref.V
 
 	if tCtor != nil {
-		return tCtor.QName
+		return &irGoTypeRefAlias{Q: tCtor.QName}
 	} else if tEmpty != nil {
 		return nil
 	} else if tVar != nil {

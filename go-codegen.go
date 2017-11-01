@@ -415,10 +415,8 @@ func (me *irAst) codeGenTypeRef(w io.Writer, gtd *irGoNamedTypeRef, indlevel int
 	}
 	fmtembeds := "\t%s\n"
 	isfuncwithbodynotjustsig := gtd.RefFunc != nil && gtd.RefFunc.impl != nil
-	if gtd.RefAlias != "" {
-		me.codeGenAst(w, -1, ªPkgSym(me.resolveGoTypeRefFromQName(gtd.RefAlias)))
-	} else if gtd.RefUnknown != 0 {
-		fmt.Fprintf(w, "interface{/UNKNOWN:*%d*/}", gtd.RefUnknown)
+	if gtd.RefAlias != nil {
+		me.codeGenAst(w, -1, ªPkgSym(me.resolveGoTypeRefFromQName(gtd.RefAlias.Q)))
 	} else if gtd.RefArray != nil {
 		fmt.Fprint(w, "[]")
 		me.codeGenTypeRef(w, gtd.RefArray.Of, -1)

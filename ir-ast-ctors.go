@@ -20,19 +20,19 @@ func ªA(exprs ...irA) *irALitArr {
 
 func ªB(literal bool) *irALitBool {
 	a := &irALitBool{LitBool: literal}
-	a.RefAlias = "Prim.Boolean"
+	a.RefAlias = &irGoTypeRefAlias{Q: "Prim.Boolean"}
 	return a
 }
 
 func ªN(literal float64) *irALitNum {
 	a := &irALitNum{LitNum: literal}
-	a.RefAlias = "Prim.Number"
+	a.RefAlias = &irGoTypeRefAlias{Q: "Prim.Number"}
 	return a
 }
 
 func ªI(literal int) *irALitInt {
 	a := &irALitInt{LitInt: literal}
-	a.RefAlias = "Prim.Int"
+	a.RefAlias = &irGoTypeRefAlias{Q: "Prim.Int"}
 	return a
 }
 
@@ -54,7 +54,7 @@ func ªOFld(fieldval irA) *irALitObjField {
 
 func ªS(literal string) *irALitStr {
 	a := &irALitStr{LitStr: literal}
-	a.RefAlias = "Prim.String"
+	a.RefAlias = &irGoTypeRefAlias{Q: "Prim.String"}
 	return a
 }
 
