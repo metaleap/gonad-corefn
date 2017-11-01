@@ -9,20 +9,20 @@ func (me *irMeta) populateGoTypeDefs() {
 	for _, ts := range me.EnvTypeSyns {
 		tc, gtd, tdict := me.tc(ts.Name), &irGoNamedTypeRef{Export: me.hasExport(ts.Name)}, map[string][]string{}
 		gtd.setBothNamesFromPsName(ts.Name)
-		gtd.setRefFrom(me.toIrGoTypeRef(tdict, ts.Ref))
+		gtd.Ref.setFrom(me.toIrGoTypeRef(tdict, ts.Ref))
 		if tc != nil {
-			if gtd.NameGo += "ᛌ"; gtd.RefStruct != nil {
-				gtd.RefStruct.PassByPtr = true
-				for _, gtdf := range gtd.RefStruct.Fields {
+			if gtd.NameGo += "ᛌ"; gtd.Ref.S != nil {
+				gtd.Ref.S.PassByPtr = true
+				for _, gtdf := range gtd.Ref.S.Fields {
 					if gtdf.Export != gtd.Export {
 						gtdf.Export = gtd.Export
 						gtdf.setBothNamesFromPsName(gtdf.NamePs)
 					}
 					if tcm := tc.memberBy(gtdf.NamePs); tcm == nil {
-						if rfn := gtdf.RefFunc; rfn == nil {
+						if rfn := gtdf.Ref.F; rfn == nil {
 							// panic(notImplErr("non-func super-class-referencing-struct-field type for", gtdf.NamePs, me.mod.srcFilePath))
 						} else {
-							for retfunc := rfn.Rets[0].RefFunc; retfunc != nil; retfunc = rfn.Rets[0].RefFunc {
+							for retfunc := rfn.Rets[0].Ref.F; retfunc != nil; retfunc = rfn.Rets[0].Ref.F {
 								rfn = retfunc
 							}
 							rfn.Rets[0].turnRefIntoRefPtr()
@@ -47,12 +47,12 @@ func (me *irMeta) populateGoTypeDefs() {
 			// tdict, gtd := map[string][]string{}, &irGoNamedTypeRef{Export: me.hasExport(tc.Name)}
 			// gtd.setBothNamesFromPsName(tc.Name)
 			// gtd.NameGo += "ˇ"
-			// gtd.RefStruct = &irGoTypeRefStruct{PassByPtr: true}
+			// gtd.Ref.S = &irGoTypeRefStruct{PassByPtr: true}
 			// for _, tcm := range tc.Members {
 			// 	tcmfield := &irGoNamedTypeRef{Export: true}
 			// 	tcmfield.setBothNamesFromPsName(tcm.Name)
 			// 	tcmfield.setRefFrom(me.toIrGoTypeRef(tdict, tcm.Ref))
-			// 	gtd.RefStruct.Fields = append(gtd.RefStruct.Fields, tcmfield)
+			// 	gtd.Ref.S.Fields = append(gtd.Ref.S.Fields, tcmfield)
 			// }
 			// me.GoTypeDefs = append(me.GoTypeDefs, gtd)
 		}
@@ -69,7 +69,7 @@ func (me *irMeta) toIrGoDataDefs(typedatadecls []*irPsTypeDataDef) (gtds irGoNam
 			// panic(notImplErr(me.mod.srcFilePath+": unexpected ctor absence for", td.Name, td))
 		} else {
 			isnewtype, hasctorargs := false, false
-			gid := &irGoNamedTypeRef{RefInterface: &irGoTypeRefInterface{xtd: td}, Export: me.hasExport(td.Name)}
+			gid := &irGoNamedTypeRef{Ref: irGoTypeRef{I: &irGoTypeRefInterface{xtd: td}}, Export: me.hasExport(td.Name)}
 			gid.setBothNamesFromPsName(td.Name)
 			for _, ctor := range td.Ctors {
 				if numargs := len(ctor.Args); numargs > 0 {
@@ -81,23 +81,23 @@ func (me *irMeta) toIrGoDataDefs(typedatadecls []*irPsTypeDataDef) (gtds irGoNam
 				}
 			}
 			if isnewtype {
-				gid.RefInterface = nil
-				gid.setRefFrom(me.toIrGoTypeRef(tdict, td.Ctors[0].Args[0].Type))
+				gid.Ref.I = nil
+				gid.Ref.setFrom(me.toIrGoTypeRef(tdict, td.Ctors[0].Args[0].Type))
 			} else {
 				for _, ctor := range td.Ctors {
-					ctor.ŧ = &irGoNamedTypeRef{Export: me.hasExport(gid.NamePs + "ĸ" + ctor.Name),
-						RefStruct: &irGoTypeRefStruct{PassByPtr: (hasctorargs && len(ctor.Args) >= Proj.BowerJsonFile.Gonad.CodeGen.PtrStructMinFieldCount)}}
+					ctor.ŧ = &irGoNamedTypeRef{Export: me.hasExport(gid.NamePs + "ĸ" + ctor.Name)}
+					ctor.ŧ.Ref.S = &irGoTypeRefStruct{PassByPtr: (hasctorargs && len(ctor.Args) >= Proj.BowerJsonFile.Gonad.CodeGen.PtrStructMinFieldCount)}
 					ctor.ŧ.setBothNamesFromPsName(gid.NamePs + "۰" + ctor.Name)
 					ctor.ŧ.NamePs = ctor.Name
 					for ia, ctorarg := range ctor.Args {
 						field := &irGoNamedTypeRef{}
-						if field.setRefFrom(me.toIrGoTypeRef(tdict, ctorarg.Type)); field.RefAlias != nil && field.RefAlias.Q == (me.mod.qName+"."+ctor.Name) {
+						if field.Ref.setFrom(me.toIrGoTypeRef(tdict, ctorarg.Type)); field.Ref.Q != nil && field.Ref.Q.Q == (me.mod.qName+"."+ctor.Name) {
 							//	an inconstructable self-recursive type, aka Data.Void
 							field.turnRefIntoRefPtr()
 						}
 						field.NameGo = fmt.Sprintf("%s%d", sanitizeSymbolForGo(ctor.Name, true), ia)
 						field.NamePs = fmt.Sprintf("value%d", ia)
-						ctor.ŧ.RefStruct.Fields = append(ctor.ŧ.RefStruct.Fields, field)
+						ctor.ŧ.Ref.S.Fields = append(ctor.ŧ.Ref.S.Fields, field)
 					}
 					gtds = append(gtds, ctor.ŧ)
 				}
@@ -120,7 +120,7 @@ func (me *irMeta) toIrGoTypeRef(tdict map[string][]string, tref *irPsTypeRef) in
 	tVar := tref.V
 
 	if tCtor != nil {
-		return &irGoTypeRefAlias{Q: tCtor.QName}
+		return &irGoTypeRef{Q: &irGoTypeRefAlias{Q: tCtor.QName}}
 	} else if tEmpty != nil {
 		return nil
 	} else if tVar != nil {
@@ -135,7 +135,7 @@ func (me *irMeta) toIrGoTypeRef(tdict map[string][]string, tref *irPsTypeRef) in
 		rectype := &irGoTypeRefStruct{}
 		myfield := &irGoNamedTypeRef{Export: true}
 		myfield.setBothNamesFromPsName(tRow.Label)
-		myfield.setRefFrom(me.toIrGoTypeRef(tdict, tRow.Left))
+		myfield.Ref.setFrom(me.toIrGoTypeRef(tdict, tRow.Left))
 		rectype.Fields = append(rectype.Fields, myfield)
 		if nextrow, _ := me.toIrGoTypeRef(tdict, tRow.Right).(*irGoTypeRefStruct); nextrow != nil {
 			rectype.Fields = append(rectype.Fields, nextrow.Fields...)
@@ -148,7 +148,7 @@ func (me *irMeta) toIrGoTypeRef(tdict map[string][]string, tref *irPsTypeRef) in
 				return me.toIrGoTypeRef(tdict, tAppl.Right)
 			} else if leftctor.QName == "Prim.Array" {
 				array := &irGoTypeRefArray{Of: &irGoNamedTypeRef{}}
-				array.Of.setRefFrom(me.toIrGoTypeRef(tdict, tAppl.Right))
+				array.Of.Ref.setFrom(me.toIrGoTypeRef(tdict, tAppl.Right))
 				return array
 				// } else if strings.HasPrefix(tr.TypeApp.Left.TypeConstructor, "Prim.") {
 				// 	panic(notImplErr("type-app left-hand primitive", tr.TypeApp.Left.TypeConstructor, me.mod.srcFilePath))

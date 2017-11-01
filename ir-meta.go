@@ -201,12 +201,12 @@ func (me *irMeta) populateGoValDecls() {
 		for gvd2 := me.goValDeclByGoName(gvd.NameGo); gvd2 != nil; gvd2 = me.goValDeclByGoName(gvd.NameGo) {
 			gvd.NameGo += "ˇ"
 		}
-		gvd.setRefFrom(me.toIrGoTypeRef(tdict, evd.Ref))
-		if gvd.RefStruct != nil && len(gvd.RefStruct.Fields) > 0 {
+		gvd.Ref.setFrom(me.toIrGoTypeRef(tdict, evd.Ref))
+		if gvd.Ref.S != nil && len(gvd.Ref.S.Fields) > 0 {
 			for _, gtd := range me.GoTypeDefs {
-				if gtd.RefStruct != nil && gtd.RefStruct.equiv(gvd.RefStruct) {
-					gvd.RefStruct = nil
-					gvd.RefAlias = &irGoTypeRefAlias{Q: me.mod.qName + "." + gtd.NamePs}
+				if gtd.Ref.S != nil && gtd.Ref.S.equiv(gvd.Ref.S) {
+					gvd.Ref.S = nil
+					gvd.Ref.Q = &irGoTypeRefAlias{Q: me.mod.qName + "." + gtd.NamePs}
 				}
 			}
 		}

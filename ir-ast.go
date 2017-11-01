@@ -12,10 +12,10 @@ import (
 )
 
 var (
-	exprTypeInt  = &irGoNamedTypeRef{RefAlias: &irGoTypeRefAlias{Q: "Prim.Int"}}
-	exprTypeNum  = &irGoNamedTypeRef{RefAlias: &irGoTypeRefAlias{Q: "Prim.Number"}}
-	exprTypeStr  = &irGoNamedTypeRef{RefAlias: &irGoTypeRefAlias{Q: "Prim.String"}}
-	exprTypeBool = &irGoNamedTypeRef{RefAlias: &irGoTypeRefAlias{Q: "Prim.Boolean"}}
+	exprTypeInt  = &irGoNamedTypeRef{Ref: irGoTypeRef{Q: &irGoTypeRefAlias{Q: "Prim.Int"}}}
+	exprTypeNum  = &irGoNamedTypeRef{Ref: irGoTypeRef{Q: &irGoTypeRefAlias{Q: "Prim.Number"}}}
+	exprTypeStr  = &irGoNamedTypeRef{Ref: irGoTypeRef{Q: &irGoTypeRefAlias{Q: "Prim.String"}}}
+	exprTypeBool = &irGoNamedTypeRef{Ref: irGoTypeRef{Q: &irGoTypeRefAlias{Q: "Prim.Boolean"}}}
 )
 
 type irAst struct {
@@ -237,7 +237,7 @@ func (me *irASym) refToArg() (argref *irGoNamedTypeRef) {
 	if argref = me.reftoarg; argref == nil {
 		me.perFuncUp(func(outerfunc *irAFunc) {
 			if argref == nil {
-				for _, fnarg := range outerfunc.RefFunc.Args {
+				for _, fnarg := range outerfunc.Ref.F.Args {
 					if fnarg.NameGo == me.NameGo || fnarg.NamePs == me.NamePs {
 						argref = fnarg
 						break
@@ -727,7 +727,7 @@ type irAToType struct {
 
 func (me *irAToType) ExprType() *irGoNamedTypeRef {
 	if !me.hasTypeInfo() {
-		me.copyTypeInfoFrom(&irGoNamedTypeRef{RefAlias: &irGoTypeRefAlias{Q: ustr.PrefixWithSep(me.TypePkg, ".", me.TypeName)}})
+		me.copyTypeInfoFrom(&irGoNamedTypeRef{Ref: irGoTypeRef{Q: &irGoTypeRefAlias{Q: ustr.PrefixWithSep(me.TypePkg, ".", me.TypeName)}}})
 	}
 	return &me.irGoNamedTypeRef
 }
@@ -756,7 +756,7 @@ func (me *irAPkgSym) ExprType() *irGoNamedTypeRef {
 			}
 		}
 		if !me.hasTypeInfo() {
-			me.copyTypeInfoFrom(&irGoNamedTypeRef{RefAlias: &irGoTypeRefAlias{Q: ustr.PrefixWithSep(me.PkgName, ".", me.Symbol)}})
+			me.copyTypeInfoFrom(&irGoNamedTypeRef{Ref: irGoTypeRef{Q: &irGoTypeRefAlias{Q: ustr.PrefixWithSep(me.PkgName, ".", me.Symbol)}}})
 		}
 	}
 	return &me.irGoNamedTypeRef

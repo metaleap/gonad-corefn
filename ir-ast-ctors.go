@@ -7,12 +7,12 @@ import (
 
 func ªA(exprs ...irA) *irALitArr {
 	a := &irALitArr{ArrVals: exprs}
-	a.RefArray = &irGoTypeRefArray{}
+	a.Ref.A = &irGoTypeRefArray{}
 	typefound := false
 	for _, expr := range a.ArrVals {
 		eb := expr.Base()
 		if eb.parent = a; !typefound && eb.hasTypeInfo() {
-			a.RefArray.Of = &eb.irGoNamedTypeRef
+			a.Ref.A.Of = &eb.irGoNamedTypeRef
 		}
 	}
 	return a
@@ -20,19 +20,19 @@ func ªA(exprs ...irA) *irALitArr {
 
 func ªB(literal bool) *irALitBool {
 	a := &irALitBool{LitBool: literal}
-	a.RefAlias = &irGoTypeRefAlias{Q: "Prim.Boolean"}
+	a.Ref.Q = &irGoTypeRefAlias{Q: "Prim.Boolean"}
 	return a
 }
 
 func ªN(literal float64) *irALitNum {
 	a := &irALitNum{LitNum: literal}
-	a.RefAlias = &irGoTypeRefAlias{Q: "Prim.Number"}
+	a.Ref.Q = &irGoTypeRefAlias{Q: "Prim.Number"}
 	return a
 }
 
 func ªI(literal int) *irALitInt {
 	a := &irALitInt{LitInt: literal}
-	a.RefAlias = &irGoTypeRefAlias{Q: "Prim.Int"}
+	a.Ref.Q = &irGoTypeRefAlias{Q: "Prim.Int"}
 	return a
 }
 
@@ -54,7 +54,7 @@ func ªOFld(fieldval irA) *irALitObjField {
 
 func ªS(literal string) *irALitStr {
 	a := &irALitStr{LitStr: literal}
-	a.RefAlias = &irGoTypeRefAlias{Q: "Prim.String"}
+	a.Ref.Q = &irGoTypeRefAlias{Q: "Prim.String"}
 	return a
 }
 
