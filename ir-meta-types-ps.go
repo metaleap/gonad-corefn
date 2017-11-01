@@ -16,7 +16,7 @@ type irPsTypeClass struct {
 	Members        []*irPsTypeClassMember `json:"tcm,omitempty"`
 	CoveringSets   [][]int                `json:"tccs,omitempty"`
 	DeterminedArgs []int                  `json:"tcda,omitempty"`
-	Superclasses   []*irMConstraint       `json:"tcsc,omitempty"`
+	Superclasses   irMConstraints         `json:"tcsc,omitempty"`
 	Dependencies   []irPsTypeClassDep     `json:"tcd,omitempty"`
 }
 
@@ -34,10 +34,28 @@ type irPsTypeClassDep struct {
 	Determined  []int `json:"tcdDetermined,omitempty"`
 }
 
+type irMConstraints []*irMConstraint
+
+func (me irMConstraints) equiv(cmp irMConstraints) bool {
+	if l := len(me); l == len(cmp) {
+		for i := 0; i < l; i++ {
+			if !me[i].equiv(cmp[i]) {
+				return false
+			}
+		}
+		return true
+	}
+	return false
+}
+
 type irMConstraint struct {
 	Class string       `json:"cc,omitempty"`
 	Args  irPsTypeRefs `json:"ca,omitempty"`
 	Data  interface{}  `json:"cd,omitempty"`
+}
+
+func (me *irMConstraint) equiv(cmp *irMConstraint) bool {
+	return (me == nil && cmp == nil) || (me != nil && cmp != nil && me.Class == cmp.Class && me.Data == cmp.Data && me.Args.equiv(cmp.Args))
 }
 
 type irPsTypeClassInst struct {
@@ -48,7 +66,7 @@ type irPsTypeClassInst struct {
 	Index        int                     `json:"tcii,omitempty"`
 	Value        string                  `json:"tciv,omitempty"`
 	Path         []irPsTypeClassInstPath `json:"tcip,omitempty"`
-	Dependencies []*irMConstraint        `json:"tcid,omitempty"`
+	Dependencies irMConstraints          `json:"tcid,omitempty"`
 }
 
 type irPsTypeClassInstPath struct {
@@ -90,6 +108,18 @@ type irPsTypeDataCtorArg struct {
 
 type irPsTypeRefs []*irPsTypeRef
 
+func (me irPsTypeRefs) equiv(cmp irPsTypeRefs) bool {
+	if l := len(me); l == len(cmp) {
+		for i := 0; i < l; i++ {
+			if !me[i].equiv(cmp[i]) {
+				return false
+			}
+		}
+		return true
+	}
+	return false
+}
+
 type irPsTypeRef struct {
 	A   *irPsTypeRefAppl
 	C   *irPsTypeRefConstrained
@@ -102,14 +132,26 @@ type irPsTypeRef struct {
 	V   *irPsTypeRefVar
 }
 
+func (me *irPsTypeRef) equiv(cmp *irPsTypeRef) bool {
+	return (me == nil && cmp == nil) || (me != nil && cmp != nil && me.A.equiv(cmp.A) && me.C.equiv(cmp.C) && me.E.equiv(cmp.E) && me.F.equiv(cmp.F) && me.Q.equiv(cmp.Q) && me.R.equiv(cmp.R) && me.S.equiv(cmp.S) && me.TlS.equiv(cmp.TlS) && me.V.equiv(cmp.V))
+}
+
 type irPsTypeRefAppl struct {
 	Left  *irPsTypeRef `json:"t1,omitempty"`
 	Right *irPsTypeRef `json:"t2,omitempty"`
 }
 
+func (me *irPsTypeRefAppl) equiv(cmp *irPsTypeRefAppl) bool {
+	return (me == nil && cmp == nil) || (me != nil && cmp != nil && me.Left.equiv(cmp.Left) && me.Right.equiv(cmp.Right))
+}
+
 type irPsTypeRefConstrained struct {
-	Ref    *irPsTypeRef     `json:"trcr,omitempty"`
-	Constr []*irMConstraint `json:"trcc,omitempty"`
+	Ref    *irPsTypeRef   `json:"trcr,omitempty"`
+	Constr irMConstraints `json:"trcc,omitempty"`
+}
+
+func (me *irPsTypeRefConstrained) equiv(cmp *irPsTypeRefConstrained) bool {
+	return (me == nil && cmp == nil) || (me != nil && cmp != nil && me.Ref.equiv(cmp.Ref) && me.Constr.equiv(cmp.Constr))
 }
 
 func (me *irPsTypeRefConstrained) flatten() {
@@ -131,7 +173,15 @@ type irPsTypeRefConstruct struct {
 	QName string
 }
 
+func (me *irPsTypeRefConstruct) equiv(cmp *irPsTypeRefConstruct) bool {
+	return (me == nil && cmp == nil) || (me != nil && cmp != nil && me.QName == cmp.QName)
+}
+
 type irPsTypeRefEmpty struct {
+}
+
+func (me *irPsTypeRefEmpty) equiv(cmp *irPsTypeRefEmpty) bool {
+	return (me == nil) == (cmp == nil)
 }
 
 type irPsTypeRefForall struct {
@@ -140,10 +190,18 @@ type irPsTypeRefForall struct {
 	SkolemScope *int         `json:"es,omitempty"`
 }
 
+func (me *irPsTypeRefForall) equiv(cmp *irPsTypeRefForall) bool {
+	return (me == nil && cmp == nil) || (me != nil && cmp != nil && me.Name == cmp.Name && me.Ref.equiv(cmp.Ref) && ((me.SkolemScope == nil && cmp.SkolemScope == nil) || (me.SkolemScope != nil && cmp.SkolemScope != nil && *me.SkolemScope == *cmp.SkolemScope)))
+}
+
 type irPsTypeRefRow struct {
 	Label string       `json:"rl,omitempty"`
 	Left  *irPsTypeRef `json:"r1,omitempty"`
 	Right *irPsTypeRef `json:"r2,omitempty"`
+}
+
+func (me *irPsTypeRefRow) equiv(cmp *irPsTypeRefRow) bool {
+	return (me == nil && cmp == nil) || (me != nil && cmp != nil && me.Label == cmp.Label && me.Left.equiv(cmp.Left) && me.Right.equiv(cmp.Right))
 }
 
 type irPsTypeRefSkolem struct {
@@ -152,12 +210,24 @@ type irPsTypeRefSkolem struct {
 	Scope int    `json:"ss,omitempty"`
 }
 
+func (me *irPsTypeRefSkolem) equiv(cmp *irPsTypeRefSkolem) bool {
+	return (me == nil && cmp == nil) || (me != nil && cmp != nil && me.Name == cmp.Name && me.Value == cmp.Value && me.Scope == cmp.Scope)
+}
+
 type irPsTypeRefTlStr struct {
 	Text string
 }
 
+func (me *irPsTypeRefTlStr) equiv(cmp *irPsTypeRefTlStr) bool {
+	return (me == nil && cmp == nil) || (me != nil && cmp != nil && me.Text == cmp.Text)
+}
+
 type irPsTypeRefVar struct {
 	Name string
+}
+
+func (me *irPsTypeRefVar) equiv(cmp *irPsTypeRefVar) bool {
+	return (me == nil && cmp == nil) || (me != nil && cmp != nil && me.Name == cmp.Name)
 }
 
 func (me *irMeta) tc(name string) *irPsTypeClass {
@@ -223,7 +293,7 @@ func (me *irMeta) newTRefFrom(t interface{}) *irPsTypeRef {
 			} else if tc.IsTypeApp() {
 				tref.A = &irPsTypeRefAppl{Left: me.newTRefFrom(tc.Type0), Right: me.newTRefFrom(tc.Type1)}
 			} else if tc.IsConstrainedType() {
-				tref.C = &irPsTypeRefConstrained{Constr: []*irMConstraint{me.newConstr(tc.Constr)}, Ref: me.newTRefFrom(tc.Type0)}
+				tref.C = &irPsTypeRefConstrained{Constr: irMConstraints{me.newConstr(tc.Constr)}, Ref: me.newTRefFrom(tc.Type0)}
 			} else if tc.IsTypeLevelString() {
 				tref.TlS = &irPsTypeRefTlStr{Text: tc.Text}
 			} else {

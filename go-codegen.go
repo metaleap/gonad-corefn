@@ -125,12 +125,11 @@ func (me *irAst) codeGenAst(w io.Writer, indent int, ast irA) {
 			// 	fmt.Fprint(w, " }")
 		} else {
 			fmt.Fprint(w, "{\n")
-			indent++
+			ind1 := indent + 1
 			for _, expr := range a.Body {
-				me.codeGenAst(w, indent, expr)
+				me.codeGenAst(w, ind1, expr)
 			}
 			fmt.Fprintf(w, "%s}", tabs)
-			indent-- // ineffectual; keep around in case we later switch things around
 		}
 	case *irAIf:
 		fmt.Fprintf(w, "%sif ", tabs)
@@ -360,10 +359,12 @@ func (me *irAst) codeGenModImps(w io.Writer) (err error) {
 						wasuriform = !wasuriform
 						_, err = fmt.Fprint(w, "\n")
 					}
-					if modimp.GoName == modimp.ImpPath || /*for the time being*/ true {
-						_, err = fmt.Fprintf(w, "\t%q\n", modimp.ImpPath)
-					} else {
-						_, err = fmt.Fprintf(w, "\t%s %q\n", modimp.GoName, modimp.ImpPath)
+					if err == nil {
+						if modimp.GoName == modimp.ImpPath || /*for the time being*/ true {
+							_, err = fmt.Fprintf(w, "\t%q\n", modimp.ImpPath)
+						} else {
+							_, err = fmt.Fprintf(w, "\t%s %q\n", modimp.GoName, modimp.ImpPath)
+						}
 					}
 					if err != nil {
 						break
@@ -416,7 +417,7 @@ func (me *irAst) codeGenTypeRef(w io.Writer, gtd *irGoNamedTypeRef, indlevel int
 	fmtembeds := "\t%s\n"
 	isfuncwithbodynotjustsig := gtd.Ref.F != nil && gtd.Ref.F.impl != nil
 	if gtd.Ref.Q != nil {
-		me.codeGenAst(w, -1, ªPkgSym(me.resolveGoTypeRefFromQName(gtd.Ref.Q.Q)))
+		me.codeGenAst(w, -1, ªPkgSym(me.resolveGoTypeRefFromQName(gtd.Ref.Q.QName)))
 	} else if gtd.Ref.A != nil {
 		fmt.Fprint(w, "[]")
 		me.codeGenTypeRef(w, gtd.Ref.A.Of, -1)

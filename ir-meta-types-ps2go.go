@@ -91,7 +91,7 @@ func (me *irMeta) toIrGoDataDefs(typedatadecls []*irPsTypeDataDef) (gtds irGoNam
 					ctor.ŧ.NamePs = ctor.Name
 					for ia, ctorarg := range ctor.Args {
 						field := &irGoNamedTypeRef{}
-						if field.Ref.setFrom(me.toIrGoTypeRef(tdict, ctorarg.Type)); field.Ref.Q != nil && field.Ref.Q.Q == (me.mod.qName+"."+ctor.Name) {
+						if field.Ref.setFrom(me.toIrGoTypeRef(tdict, ctorarg.Type)); field.Ref.Q != nil && field.Ref.Q.QName == (me.mod.qName+"."+ctor.Name) {
 							//	an inconstructable self-recursive type, aka Data.Void
 							field.turnRefIntoRefPtr()
 						}
@@ -108,58 +108,36 @@ func (me *irMeta) toIrGoDataDefs(typedatadecls []*irPsTypeDataDef) (gtds irGoNam
 	return
 }
 
-func (me *irMeta) toIrGoTypeRef(tdict map[string][]string, tref *irPsTypeRef) interface{} {
+func (me *irMeta) toIrGoTypeRef(tdict map[string][]string, tref *irPsTypeRef) *irGoTypeRef {
 	tAppl := tref.A
-	tConstr := tref.C
-	tEmpty := tref.E
-	tForall := tref.F
 	tCtor := tref.Q
 	tRow := tref.R
-	tSkolem := tref.S
-	// tTlStr := tref.TlS
-	tVar := tref.V
 
+	gtr := irGoTypeRef{Orig: tref}
 	if tCtor != nil {
-		return &irGoTypeRef{Q: &irGoTypeRefAlias{Q: tCtor.QName}}
-	} else if tEmpty != nil {
-		return nil
-	} else if tVar != nil {
-		return &irGoTypeRefInterface{isTypeVar: true}
-	} else if tConstr != nil {
-		return me.toIrGoTypeRef(tdict, tConstr.Ref)
-	} else if tForall != nil {
-		return me.toIrGoTypeRef(tdict, tForall.Ref)
-	} else if tSkolem != nil {
-		return fmt.Sprintf("Skolem_%s_scope%d_value%d", tSkolem.Name, tSkolem.Scope, tSkolem.Value)
+		gtr.Q = &irGoTypeRefAlias{QName: tCtor.QName}
 	} else if tRow != nil {
-		rectype := &irGoTypeRefStruct{}
+		refstruc := &irGoTypeRefStruct{}
 		myfield := &irGoNamedTypeRef{Export: true}
 		myfield.setBothNamesFromPsName(tRow.Label)
 		myfield.Ref.setFrom(me.toIrGoTypeRef(tdict, tRow.Left))
-		rectype.Fields = append(rectype.Fields, myfield)
-		if nextrow, _ := me.toIrGoTypeRef(tdict, tRow.Right).(*irGoTypeRefStruct); nextrow != nil {
-			rectype.Fields = append(rectype.Fields, nextrow.Fields...)
+		refstruc.Fields = append(refstruc.Fields, myfield)
+		if nextrow := me.toIrGoTypeRef(tdict, tRow.Right); nextrow != nil && nextrow.S != nil {
+			refstruc.Fields = append(refstruc.Fields, nextrow.S.Fields...)
 		}
-		rectype.PassByPtr = len(rectype.Fields) >= Proj.BowerJsonFile.Gonad.CodeGen.PtrStructMinFieldCount
-		return rectype
+		refstruc.PassByPtr = len(refstruc.Fields) >= Proj.BowerJsonFile.Gonad.CodeGen.PtrStructMinFieldCount
+		gtr.S = refstruc
 	} else if tAppl != nil {
 		if leftctor := tAppl.Left.Q; leftctor != nil {
 			if leftctor.QName == "Prim.Record" {
 				return me.toIrGoTypeRef(tdict, tAppl.Right)
 			} else if leftctor.QName == "Prim.Array" {
-				array := &irGoTypeRefArray{Of: &irGoNamedTypeRef{}}
-				array.Of.Ref.setFrom(me.toIrGoTypeRef(tdict, tAppl.Right))
-				return array
-				// } else if strings.HasPrefix(tr.TypeApp.Left.TypeConstructor, "Prim.") {
-				// 	panic(notImplErr("type-app left-hand primitive", tr.TypeApp.Left.TypeConstructor, me.mod.srcFilePath))
-				// } else if tr.TypeApp.Left.TypeApp != nil && tr.TypeApp.Left.TypeApp.Left.TypeConstructor == "Prim.Function" && tr.TypeApp.Left.TypeApp.Right.TypeApp != nil && tr.TypeApp.Left.TypeApp.Right.TypeApp.Left.TypeConstructor == "Prim.Record" && tr.TypeApp.Right.TypeApp != nil && tr.TypeApp.Right.TypeApp.Left != nil {
-				// 	return funcyhackery(tr.TypeApp.Right.TypeApp.Left)
-				// } else if tr.TypeApp.Left.TypeApp != nil && (tr.TypeApp.Left.TypeApp.Left.TypeConstructor == "Prim.Function" || /*insanely hacky*/ tr.TypeApp.Right.TypeVar != "") {
-				// 	return funcyhackery(tr.TypeApp.Right)
-				// } else if tr.TypeApp.Left.TypeConstructor != "" {
-				// 	return me.toIrGoTypeRef(tdict, tr.TypeApp.Left)
+				refarr := &irGoTypeRefArray{Of: &irGoNamedTypeRef{}}
+				refarr.Of.Ref.setFrom(me.toIrGoTypeRef(tdict, tAppl.Right))
+				gtr.A = refarr
+			} else { // the well-known type-app (Maybe, Either, List, etcpp)
 			}
 		}
 	}
-	return nil
+	return &gtr
 }

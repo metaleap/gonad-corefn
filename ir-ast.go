@@ -12,10 +12,10 @@ import (
 )
 
 var (
-	exprTypeInt  = &irGoNamedTypeRef{Ref: irGoTypeRef{Q: &irGoTypeRefAlias{Q: "Prim.Int"}}}
-	exprTypeNum  = &irGoNamedTypeRef{Ref: irGoTypeRef{Q: &irGoTypeRefAlias{Q: "Prim.Number"}}}
-	exprTypeStr  = &irGoNamedTypeRef{Ref: irGoTypeRef{Q: &irGoTypeRefAlias{Q: "Prim.String"}}}
-	exprTypeBool = &irGoNamedTypeRef{Ref: irGoTypeRef{Q: &irGoTypeRefAlias{Q: "Prim.Boolean"}}}
+	exprTypeInt  = &irGoNamedTypeRef{Ref: irGoTypeRef{Q: &irGoTypeRefAlias{QName: "Prim.Int"}}}
+	exprTypeNum  = &irGoNamedTypeRef{Ref: irGoTypeRef{Q: &irGoTypeRefAlias{QName: "Prim.Number"}}}
+	exprTypeStr  = &irGoNamedTypeRef{Ref: irGoTypeRef{Q: &irGoTypeRefAlias{QName: "Prim.String"}}}
+	exprTypeBool = &irGoNamedTypeRef{Ref: irGoTypeRef{Q: &irGoTypeRefAlias{QName: "Prim.Boolean"}}}
 )
 
 type irAst struct {
@@ -68,7 +68,7 @@ func (me *irABase) ExprType() *irGoNamedTypeRef { return &me.irGoNamedTypeRef }
 func (me *irABase) Parent() irA                 { return me.parent }
 func (me *irABase) Equiv(cmp irA) bool {
 	ab := cmp.Base()
-	return (me == nil && ab == nil) || (me != nil && ab != nil && me.irGoNamedTypeRef.equiv(&ab.irGoNamedTypeRef) && me.NameGo == ab.NameGo && me.NamePs == ab.NamePs)
+	return (me == nil && ab == nil) || (me != nil && ab != nil && me.Ref.equiv(&ab.Ref) && me.NameGo == ab.NameGo && me.NamePs == ab.NamePs)
 }
 
 func (me *irABase) isTopLevel() bool {
@@ -727,7 +727,7 @@ type irAToType struct {
 
 func (me *irAToType) ExprType() *irGoNamedTypeRef {
 	if !me.hasTypeInfo() {
-		me.copyTypeInfoFrom(&irGoNamedTypeRef{Ref: irGoTypeRef{Q: &irGoTypeRefAlias{Q: ustr.PrefixWithSep(me.TypePkg, ".", me.TypeName)}}})
+		me.copyTypeInfoFrom(&irGoNamedTypeRef{Ref: irGoTypeRef{Q: &irGoTypeRefAlias{QName: ustr.PrefixWithSep(me.TypePkg, ".", me.TypeName)}}})
 	}
 	return &me.irGoNamedTypeRef
 }
@@ -756,7 +756,7 @@ func (me *irAPkgSym) ExprType() *irGoNamedTypeRef {
 			}
 		}
 		if !me.hasTypeInfo() {
-			me.copyTypeInfoFrom(&irGoNamedTypeRef{Ref: irGoTypeRef{Q: &irGoTypeRefAlias{Q: ustr.PrefixWithSep(me.PkgName, ".", me.Symbol)}}})
+			me.copyTypeInfoFrom(&irGoNamedTypeRef{Ref: irGoTypeRef{Q: &irGoTypeRefAlias{QName: ustr.PrefixWithSep(me.PkgName, ".", me.Symbol)}}})
 		}
 	}
 	return &me.irGoNamedTypeRef

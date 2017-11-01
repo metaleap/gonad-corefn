@@ -64,7 +64,6 @@ func (me *modPkg) impPath() string {
 }
 
 func (me *modPkg) loadPkgIrMeta() (err error) {
-	return
 	var jsonbytes []byte
 	if jsonbytes, err = ioutil.ReadFile(me.irMetaFilePath); err == nil {
 		if err = json.Unmarshal(jsonbytes, &me.irMeta); err == nil {
