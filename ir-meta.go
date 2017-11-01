@@ -13,11 +13,11 @@ import (
 type irMeta struct {
 	Exports           []string             `json:",omitempty"`
 	Imports           irMPkgRefs           `json:",omitempty"`
-	EnvTypeSyns       []*irPsNamedTypeRef  `json:",omitempty"`
+	EnvTypeSyns       irPsNamedTypeRefs    `json:",omitempty"`
 	EnvTypeClasses    []*irPsTypeClass     `json:",omitempty"`
 	EnvTypeClassInsts []*irPsTypeClassInst `json:",omitempty"`
 	EnvTypeDataDecls  []*irPsTypeDataDef   `json:",omitempty"`
-	EnvValDecls       []*irPsNamedTypeRef  `json:",omitempty"`
+	EnvValDecls       irPsNamedTypeRefs    `json:",omitempty"`
 	GoTypeDefs        irGoNamedTypeRefs    `json:",omitempty"`
 	GoValDecls        irGoNamedTypeRefs    `json:",omitempty"`
 	ForeignImp        *irMPkgRef           `json:",omitempty"`
@@ -151,8 +151,8 @@ func (me *irMeta) populateFromCoreImp() {
 	}
 
 	// discover and store imports
-	for _, imp := range me.mod.coreimp.Imps {
-		if impname := strings.Join(imp, "."); impname != "Prim" && impname != "Prelude" && impname != me.mod.qName {
+	for _, imp := range me.mod.corefn.Imports {
+		if impname := strings.Join(imp.ModuleName, "."); impname != "Prim" && impname != "Prelude" && impname != me.mod.qName {
 			me.imports = append(me.imports, findModuleByQName(impname))
 		}
 	}

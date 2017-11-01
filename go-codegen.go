@@ -426,8 +426,8 @@ func (me *irAst) codeGenTypeRef(w io.Writer, gtd *irGoNamedTypeRef, indlevel int
 		me.codeGenTypeRef(w, gtd.Ref.P.Of, -1)
 	} else if gtd.Ref.I != nil {
 		if len(gtd.Ref.I.Embeds) == 0 && len(gtd.Ref.I.Methods) == 0 {
-			if gtd.Ref.I.isTypeVar {
-				fmt.Fprint(w, "𝒈.𝑻")
+			if tv := gtd.Ref.typeVar(); tv != "" {
+				fmt.Fprint(w, "𝒈.𝑻/*"+tv+"*/")
 				me.irM.ensureImp("", "github.com/gonadz/-", "").emitted = true
 			} else {
 				fmt.Fprint(w, "interface{}")

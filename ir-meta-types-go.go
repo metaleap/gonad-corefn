@@ -117,6 +117,13 @@ func (me *irGoTypeRef) equiv(cmp *irGoTypeRef) bool {
 		(me != nil && cmp != nil && me.Q.equiv(cmp.Q) && me.I.equiv(cmp.I) && me.F.equiv(cmp.F) && me.S.equiv(cmp.S) && me.A.equiv(cmp.A) && me.P.equiv(cmp.P) && me.Orig.equiv(cmp.Orig))
 }
 
+func (me *irGoTypeRef) typeVar() string {
+	if me.Orig != nil && me.Orig.V != nil {
+		return me.Orig.V.Name
+	}
+	return ""
+}
+
 func (me *irGoTypeRef) setFrom(tref interface{}) {
 	me.A, me.F, me.I, me.P, me.Q, me.S = nil, nil, nil, nil, nil, nil
 	switch tr := tref.(type) {
@@ -174,21 +181,20 @@ type irGoTypeRefInterface struct {
 	Embeds  []string          `json:",omitempty"`
 	Methods irGoNamedTypeRefs `json:",omitempty"`
 
-	isTypeVar        bool
-	xtc              *irPsTypeClass
-	xtd              *irPsTypeDataDef
-	inheritedMethods irGoNamedTypeRefs
+	origClass *irPsTypeClass
+	origData  *irPsTypeDataDef
 }
 
 func (me *irGoTypeRefInterface) equiv(cmp *irGoTypeRefInterface) bool {
-	return (me == nil && cmp == nil) || (me != nil && cmp != nil && me.isTypeVar == cmp.isTypeVar && uslice.StrEq(me.Embeds, cmp.Embeds) && me.Methods.equiv(cmp.Methods))
+	return (me == nil && cmp == nil) || (me != nil && cmp != nil && uslice.StrEq(me.Embeds, cmp.Embeds) && me.Methods.equiv(cmp.Methods))
 }
 
 type irGoTypeRefFunc struct {
 	Args irGoNamedTypeRefs `json:",omitempty"`
 	Rets irGoNamedTypeRefs `json:",omitempty"`
 
-	impl *irABlock
+	origTcMem *irPsTypeClassMember
+	impl      *irABlock
 }
 
 func (me *irGoTypeRefFunc) copyArgTypesOnlyFrom(namesIfMeNil bool, from *irGoTypeRefFunc) {
@@ -275,6 +281,8 @@ type irGoTypeRefStruct struct {
 	Fields    irGoNamedTypeRefs `json:",omitempty"`
 	PassByPtr bool              `json:",omitempty"`
 	Methods   irGoNamedTypeRefs `json:",omitempty"`
+
+	origInst *irPsTypeClassInst
 }
 
 func (me *irGoTypeRefStruct) equiv(cmp *irGoTypeRefStruct) bool {

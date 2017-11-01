@@ -7,55 +7,52 @@ import (
 func (me *irMeta) populateGoTypeDefs() {
 	//	TYPE ALIASES / SYNONYMS
 	for _, ts := range me.EnvTypeSyns {
-		tc, gtd, tdict := me.tc(ts.Name), &irGoNamedTypeRef{Export: me.hasExport(ts.Name)}, map[string][]string{}
-		gtd.setBothNamesFromPsName(ts.Name)
-		gtd.Ref.setFrom(me.toIrGoTypeRef(tdict, ts.Ref))
-		if tc != nil {
-			if gtd.NameGo += "ᛌ"; gtd.Ref.S != nil {
-				gtd.Ref.S.PassByPtr = true
-				for _, gtdf := range gtd.Ref.S.Fields {
-					if gtdf.Export != gtd.Export {
-						gtdf.Export = gtd.Export
-						gtdf.setBothNamesFromPsName(gtdf.NamePs)
-					}
-					if tcm := tc.memberBy(gtdf.NamePs); tcm == nil {
-						if rfn := gtdf.Ref.F; rfn == nil {
-							// panic(notImplErr("non-func super-class-referencing-struct-field type for", gtdf.NamePs, me.mod.srcFilePath))
-						} else {
-							for retfunc := rfn.Rets[0].Ref.F; retfunc != nil; retfunc = rfn.Rets[0].Ref.F {
-								rfn = retfunc
-							}
-							rfn.Rets[0].turnRefIntoRefPtr()
+		if tc := me.tc(ts.Name); tc == nil {
+			gtd, tdict := &irGoNamedTypeRef{Export: me.hasExport(ts.Name)}, map[string][]string{}
+			gtd.setBothNamesFromPsName(ts.Name)
+			gtd.Ref.setFrom(me.toIrGoTypeRef(tdict, ts.Ref))
+			gtd.Ref.Orig = ts.Ref
+			me.GoTypeDefs = append(me.GoTypeDefs, gtd)
+		}
+	}
+
+	//	TYPE-CLASSES
+	for _, tc := range me.EnvTypeClasses {
+		tdict, gtd := map[string][]string{}, &irGoNamedTypeRef{Export: me.hasExport(tc.Name)}
+		gtd.setBothNamesFromPsName(tc.Name)
+		// gtd.NameGo += "ᛌ"
+		gtd.Ref.I = &irGoTypeRefInterface{origClass: tc}
+		for _, tcm := range tc.Members {
+			method := &irGoNamedTypeRef{Export: true, Ref: irGoTypeRef{F: &irGoTypeRefFunc{origTcMem: tcm}}}
+			method.setBothNamesFromPsName(tcm.Name)
+			method.Ref.F.copyArgTypesOnlyFrom(false, me.toIrGoTypeRef(tdict, tcm.Ref).F)
+			method.Ref.Orig = tcm.Ref
+			gtd.Ref.I.Methods = append(gtd.Ref.I.Methods, method)
+		}
+		me.GoTypeDefs = append(me.GoTypeDefs, gtd)
+	}
+
+	//	TYPE-CLASS INSTANCES
+	for _, tci := range me.EnvTypeClassInsts {
+		gtd := &irGoNamedTypeRef{Export: me.hasExport(tci.Name), Ref: irGoTypeRef{S: &irGoTypeRefStruct{origInst: tci}}}
+		gtd.setBothNamesFromPsName(tci.Name)
+		for _, tcs := range me.mod.coreimp.DeclEnv.ClassDicts {
+			if insts, _ := tcs[tci.ClassName]; insts != nil {
+				if instdef, _ := insts[tci.Name]; instdef != nil {
+					if envval := me.EnvValDecls.byName(instdef.Value); envval != nil && envval.Ref.A != nil && envval.Ref.A.Right.R != nil && envval.Ref.A.Left.Q != nil && envval.Ref.A.Left.Q.QName == "Prim.Record" {
+						for rcons := envval.Ref.A.Right.R; rcons != nil; rcons = rcons.Right.R {
+							method := &irGoNamedTypeRef{Export: true, Ref: irGoTypeRef{F: &irGoTypeRefFunc{}}}
+							method.setBothNamesFromPsName(rcons.Label)
+							tdict := map[string][]string{}
+							method.Ref.F.copyArgTypesOnlyFrom(true, me.toIrGoTypeRef(tdict, rcons.Left).F)
+							method.Ref.Orig = rcons.Left
+							gtd.Ref.S.Methods = append(gtd.Ref.S.Methods, method)
 						}
 					}
 				}
 			}
 		}
 		me.GoTypeDefs = append(me.GoTypeDefs, gtd)
-	}
-
-	//	TYPE CLASSES + INSTANCES
-	for _, tc := range me.EnvTypeClasses {
-		tsynfound := false
-		for _, ts := range me.EnvTypeSyns {
-			if tsynfound = (ts.Name == tc.Name); tsynfound {
-				break
-			}
-		}
-		if !tsynfound {
-			panic(notImplErr("lack of pre-formed type-synonym for type-class", tc.Name, me.mod.srcFilePath))
-			// tdict, gtd := map[string][]string{}, &irGoNamedTypeRef{Export: me.hasExport(tc.Name)}
-			// gtd.setBothNamesFromPsName(tc.Name)
-			// gtd.NameGo += "ˇ"
-			// gtd.Ref.S = &irGoTypeRefStruct{PassByPtr: true}
-			// for _, tcm := range tc.Members {
-			// 	tcmfield := &irGoNamedTypeRef{Export: true}
-			// 	tcmfield.setBothNamesFromPsName(tcm.Name)
-			// 	tcmfield.setRefFrom(me.toIrGoTypeRef(tdict, tcm.Ref))
-			// 	gtd.Ref.S.Fields = append(gtd.Ref.S.Fields, tcmfield)
-			// }
-			// me.GoTypeDefs = append(me.GoTypeDefs, gtd)
-		}
 	}
 
 	//	ALGEBRAIC DATA TYPES
@@ -69,7 +66,7 @@ func (me *irMeta) toIrGoDataDefs(typedatadecls []*irPsTypeDataDef) (gtds irGoNam
 			// panic(notImplErr(me.mod.srcFilePath+": unexpected ctor absence for", td.Name, td))
 		} else {
 			isnewtype, hasctorargs := false, false
-			gid := &irGoNamedTypeRef{Ref: irGoTypeRef{I: &irGoTypeRefInterface{xtd: td}}, Export: me.hasExport(td.Name)}
+			gid := &irGoNamedTypeRef{Ref: irGoTypeRef{I: &irGoTypeRefInterface{origData: td}}, Export: me.hasExport(td.Name)}
 			gid.setBothNamesFromPsName(td.Name)
 			for _, ctor := range td.Ctors {
 				if numargs := len(ctor.Args); numargs > 0 {
@@ -136,6 +133,14 @@ func (me *irMeta) toIrGoTypeRef(tdict map[string][]string, tref *irPsTypeRef) *i
 				refarr.Of.Ref.setFrom(me.toIrGoTypeRef(tdict, tAppl.Right))
 				gtr.A = refarr
 			} else { // the well-known type-app (Maybe, Either, List, etcpp)
+			}
+		} else if leftappl := tAppl.Left.A; leftappl != nil {
+			if leftappl.Left.A != nil && leftappl.Left.A.Left.Q != nil && leftappl.Left.A.Left.Q.QName == "Prim.Function" {
+				gtr.F = &irGoTypeRefFunc{}
+				gtr.F.Args = irGoNamedTypeRefs{&irGoNamedTypeRef{}}
+				gtr.F.Args[0].Ref.setFrom(me.toIrGoTypeRef(tdict, leftappl.Left.A.Right))
+				gtr.F.Rets = irGoNamedTypeRefs{&irGoNamedTypeRef{}}
+				gtr.F.Rets[0].Ref.setFrom(me.toIrGoTypeRef(tdict, leftappl.Right))
 			}
 		}
 	}

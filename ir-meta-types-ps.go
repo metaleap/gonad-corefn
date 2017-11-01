@@ -1,13 +1,29 @@
 package main
 
 import (
+	"bytes"
+	"fmt"
+
 	"github.com/metaleap/go-util/dev/ps"
 	"github.com/metaleap/go-util/fs"
 )
 
+type irPsNamedTypeRefs []*irPsNamedTypeRef
+
+func (me irPsNamedTypeRefs) byName(name string) *irPsNamedTypeRef {
+	for _, ntr := range me {
+		if ntr.Name == name {
+			return ntr
+		}
+	}
+	return nil
+}
+
 type irPsNamedTypeRef struct {
 	Name string       `json:"ntn,omitempty"`
 	Ref  *irPsTypeRef `json:"ntr,omitempty"`
+
+	orig *udevps.CoreEnvName
 }
 
 type irPsTypeClass struct {
@@ -136,6 +152,30 @@ func (me *irPsTypeRef) equiv(cmp *irPsTypeRef) bool {
 	return (me == nil && cmp == nil) || (me != nil && cmp != nil && me.A.equiv(cmp.A) && me.C.equiv(cmp.C) && me.E.equiv(cmp.E) && me.F.equiv(cmp.F) && me.Q.equiv(cmp.Q) && me.R.equiv(cmp.R) && me.S.equiv(cmp.S) && me.TlS.equiv(cmp.TlS) && me.V.equiv(cmp.V))
 }
 
+func (me *irPsTypeRef) String() string {
+	var buf bytes.Buffer
+	if w := &buf; me.A != nil {
+		fmt.Fprintf(w, "Appl{%s , %s}", me.A.Left.String(), me.A.Right.String())
+	} else if me.C != nil {
+		fmt.Fprintf(w, "C{%v , %s}", me.C.Constr, me.C.Ref.String())
+	} else if me.E != nil {
+		fmt.Fprint(w, "E{}")
+	} else if me.F != nil {
+		fmt.Fprintf(w, "Fa{%q , %d , %s}", me.F.Name, me.F.SkolemScope, me.F.Ref.String())
+	} else if me.Q != nil {
+		fmt.Fprintf(w, "Q{%q}", me.Q.QName)
+	} else if me.R != nil {
+		fmt.Fprintf(w, "R{%q , %s , %s}", me.R.Label, me.R.Left.String(), me.R.Right.String())
+	} else if me.S != nil {
+		fmt.Fprintf(w, "Sk{%q , %d , %d}", me.S.Name, me.S.Scope, me.S.Value)
+	} else if me.TlS != nil {
+		fmt.Fprintf(w, "TlS{%q}", me.TlS.Text)
+	} else if me.V != nil {
+		fmt.Fprintf(w, "V{%q}", me.V.Name)
+	}
+	return buf.String()
+}
+
 type irPsTypeRefAppl struct {
 	Left  *irPsTypeRef `json:"t1,omitempty"`
 	Right *irPsTypeRef `json:"t2,omitempty"`
@@ -187,11 +227,11 @@ func (me *irPsTypeRefEmpty) equiv(cmp *irPsTypeRefEmpty) bool {
 type irPsTypeRefForall struct {
 	Name        string       `json:"en,omitempty"`
 	Ref         *irPsTypeRef `json:"er,omitempty"`
-	SkolemScope *int         `json:"es,omitempty"`
+	SkolemScope int          `json:"es,omitempty"`
 }
 
 func (me *irPsTypeRefForall) equiv(cmp *irPsTypeRefForall) bool {
-	return (me == nil && cmp == nil) || (me != nil && cmp != nil && me.Name == cmp.Name && me.Ref.equiv(cmp.Ref) && ((me.SkolemScope == nil && cmp.SkolemScope == nil) || (me.SkolemScope != nil && cmp.SkolemScope != nil && *me.SkolemScope == *cmp.SkolemScope)))
+	return (me == nil && cmp == nil) || (me != nil && cmp != nil && me.Name == cmp.Name && me.Ref.equiv(cmp.Ref) && me.SkolemScope == cmp.SkolemScope)
 }
 
 type irPsTypeRefRow struct {
@@ -262,72 +302,45 @@ func (me *irMeta) tcMember(name string) *irPsTypeClassMember {
 func (me *irMeta) newConstr(from *udevps.CoreConstr) (c *irMConstraint) {
 	c = &irMConstraint{Class: from.Cls, Data: from.Data}
 	for _, fromarg := range from.Args {
-		c.Args = append(c.Args, me.newTRefFrom(fromarg))
+		c.Args = append(c.Args, me.newTRefFromCoreTag(fromarg))
 	}
 	return
 
 }
 
-func (me *irMeta) newTRefFrom(t interface{}) *irPsTypeRef {
-	if t != nil {
-		var tref irPsTypeRef
-		switch r := t.(type) {
-		case *udevps.CoreTagType:
-			if tc := r; tc.IsTypeConstructor() {
-				tref.Q = &irPsTypeRefConstruct{QName: tc.Text}
-			} else if tc.IsTypeVar() {
-				tref.V = &irPsTypeRefVar{Name: tc.Text}
-			} else if tc.IsREmpty() {
-				tref.E = &irPsTypeRefEmpty{}
-			} else if tc.IsRCons() {
-				tref.R = &irPsTypeRefRow{
-					Label: tc.Text, Left: me.newTRefFrom(tc.Type0), Right: me.newTRefFrom(tc.Type1)}
-			} else if tc.IsForAll() {
-				forall := &irPsTypeRefForall{Name: tc.Text, Ref: me.newTRefFrom(tc.Type0)}
-				if tc.Skolem >= 0 {
-					forall.SkolemScope = &tc.Skolem
-				}
-				tref.F = forall
-			} else if tc.IsSkolem() {
-				tref.S = &irPsTypeRefSkolem{Name: tc.Text, Value: tc.Num, Scope: tc.Skolem}
-			} else if tc.IsTypeApp() {
-				tref.A = &irPsTypeRefAppl{Left: me.newTRefFrom(tc.Type0), Right: me.newTRefFrom(tc.Type1)}
-			} else if tc.IsConstrainedType() {
-				tref.C = &irPsTypeRefConstrained{Constr: irMConstraints{me.newConstr(tc.Constr)}, Ref: me.newTRefFrom(tc.Type0)}
-			} else if tc.IsTypeLevelString() {
-				tref.TlS = &irPsTypeRefTlStr{Text: tc.Text}
-			} else {
-				panic(notImplErr("tagged-type", tc.Tag, me.mod.srcFilePath))
-			}
-		case *irPsTypeRefAppl:
-			tref.A = r
-		case *irPsTypeRefConstrained:
-			tref.C = r
-		case *irPsTypeRefConstruct:
-			tref.Q = r
-		case *irPsTypeRefEmpty:
-			tref.E = r
-		case *irPsTypeRefForall:
-			tref.F = r
-		case *irPsTypeRefRow:
-			tref.R = r
-		case *irPsTypeRefSkolem:
-			tref.S = r
-		case *irPsTypeRefVar:
-			tref.V = r
-		case *irPsTypeRefTlStr:
-			tref.TlS = r
-		default:
-			panic(notImplErr("`ref` for", "newTRefFrom", me.mod.srcFilePath))
-		}
-		return &tref
+func (me *irMeta) newTRefFromCoreTag(tc *udevps.CoreTagType) *irPsTypeRef {
+	var tref irPsTypeRef
+	if tc.IsTypeConstructor() {
+		tref.Q = &irPsTypeRefConstruct{QName: tc.Text}
+	} else if tc.IsTypeVar() {
+		tref.V = &irPsTypeRefVar{Name: tc.Text}
+	} else if tc.IsREmpty() {
+		tref.E = &irPsTypeRefEmpty{}
+	} else if tc.IsRCons() {
+		tref.R = &irPsTypeRefRow{
+			Label: tc.Text, Left: me.newTRefFromCoreTag(tc.Type0), Right: me.newTRefFromCoreTag(tc.Type1)}
+	} else if tc.IsForAll() {
+		forall := &irPsTypeRefForall{Name: tc.Text, Ref: me.newTRefFromCoreTag(tc.Type0)}
+		forall.SkolemScope = tc.Skolem
+		tref.F = forall
+	} else if tc.IsSkolem() {
+		tref.S = &irPsTypeRefSkolem{Name: tc.Text, Value: tc.Num, Scope: tc.Skolem}
+	} else if tc.IsTypeApp() {
+		tref.A = &irPsTypeRefAppl{Left: me.newTRefFromCoreTag(tc.Type0), Right: me.newTRefFromCoreTag(tc.Type1)}
+	} else if tc.IsConstrainedType() {
+		tref.C = &irPsTypeRefConstrained{Constr: irMConstraints{me.newConstr(tc.Constr)}, Ref: me.newTRefFromCoreTag(tc.Type0)}
+	} else if tc.IsTypeLevelString() {
+		tref.TlS = &irPsTypeRefTlStr{Text: tc.Text}
+	} else {
+		panic(notImplErr("tagged-type", tc.Tag, me.mod.srcFilePath))
 	}
-	return nil
+	return &tref
 }
 
 func (me *irMeta) populateEnvFuncsAndVals() {
+	me.EnvValDecls = make(irPsNamedTypeRefs, 0, len(me.mod.coreimp.DeclEnv.Functions))
 	for fname, fdef := range me.mod.coreimp.DeclEnv.Functions {
-		me.EnvValDecls = append(me.EnvValDecls, &irPsNamedTypeRef{Name: fname, Ref: me.newTRefFrom(fdef.Type)})
+		me.EnvValDecls = append(me.EnvValDecls, &irPsNamedTypeRef{Name: fname, Ref: me.newTRefFromCoreTag(fdef.Type), orig: fdef})
 	}
 }
 
@@ -340,7 +353,7 @@ func (me *irMeta) populateEnvTypeDataDecls() {
 				panic(me.mod.srcFilePath + ": time to handle FFI " + ffigofilepath)
 			} else {
 				//	special case for official purescript core libs: alias to applicable struct from gonad's default ffi packages
-				ta := &irPsNamedTypeRef{Name: tdefname, Ref: me.newTRefFrom(&irPsTypeRefConstruct{QName: prefixDefaultFfiPkgNs + strReplDot2ˈ.Replace(me.mod.qName) + "." + tdefname})}
+				ta := &irPsNamedTypeRef{Name: tdefname, Ref: &irPsTypeRef{Q: &irPsTypeRefConstruct{QName: prefixDefaultFfiPkgNs + strReplDot2ˈ.Replace(me.mod.qName) + "." + tdefname}}}
 				me.EnvTypeSyns = append(me.EnvTypeSyns, ta)
 			}
 		} else {
@@ -353,9 +366,9 @@ func (me *irMeta) populateEnvTypeDataDecls() {
 				if len(dcdef.Args) != len(dtctor.Types) {
 					panic(notImplErr("ctor-args count mismatch", tdefname+"|"+dtctor.Name, me.mod.impFilePath))
 				}
-				dtc := &irPsTypeDataCtor{Name: dtctor.Name, DataTypeName: dcdef.Type, IsNewType: dcdef.IsDeclNewtype(), Ctor: me.newTRefFrom(dcdef.Ctor)}
+				dtc := &irPsTypeDataCtor{Name: dtctor.Name, DataTypeName: dcdef.Type, IsNewType: dcdef.IsDeclˇNewtype(), Ctor: me.newTRefFromCoreTag(dcdef.Ctor)}
 				for i, dtcargtype := range dtctor.Types {
-					dtc.Args = append(dtc.Args, &irPsTypeDataCtorArg{Name: dcdef.Args[i], Type: me.newTRefFrom(dtcargtype)})
+					dtc.Args = append(dtc.Args, &irPsTypeDataCtorArg{Name: dcdef.Args[i], Type: me.newTRefFromCoreTag(dtcargtype)})
 				}
 				dt.Ctors = append(dt.Ctors, dtc)
 			}
@@ -367,7 +380,7 @@ func (me *irMeta) populateEnvTypeDataDecls() {
 func (me *irMeta) populateEnvTypeSyns() {
 	for tsname, tsdef := range me.mod.coreimp.DeclEnv.TypeSyns {
 		ts := &irPsNamedTypeRef{Name: tsname}
-		ts.Ref = me.newTRefFrom(tsdef.Type)
+		ts.Ref = me.newTRefFromCoreTag(tsdef.Type)
 		me.EnvTypeSyns = append(me.EnvTypeSyns, ts)
 	}
 }
@@ -379,7 +392,7 @@ func (me *irMeta) populateEnvTypeClasses() {
 			tc.Args = append(tc.Args, tcarg.Name)
 		}
 		for _, tcmdef := range tcdef.Members {
-			tref := me.newTRefFrom(tcmdef.Type)
+			tref := me.newTRefFromCoreTag(tcmdef.Type)
 			tc.Members = append(tc.Members, &irPsTypeClassMember{parent: tc, irPsNamedTypeRef: irPsNamedTypeRef{Name: tcmdef.Ident, Ref: tref}})
 		}
 		for _, tcsc := range tcdef.Superclasses {
@@ -403,7 +416,7 @@ func (me *irMeta) populateEnvTypeClasses() {
 					tci.Path = append(tci.Path, irPsTypeClassInstPath{Cls: tcip.Class, Idx: tcip.Int})
 				}
 				for _, tcit := range tcidef.InstanceTypes {
-					tci.Types = append(tci.Types, me.newTRefFrom(tcit))
+					tci.Types = append(tci.Types, me.newTRefFromCoreTag(tcit))
 				}
 				me.EnvTypeClassInsts = append(me.EnvTypeClassInsts, tci)
 			}
