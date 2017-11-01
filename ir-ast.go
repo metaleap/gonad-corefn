@@ -12,10 +12,10 @@ import (
 )
 
 var (
-	exprTypeInt  = &irANamedTypeRef{RefAlias: "Prim.Int"}
-	exprTypeNum  = &irANamedTypeRef{RefAlias: "Prim.Number"}
-	exprTypeStr  = &irANamedTypeRef{RefAlias: "Prim.String"}
-	exprTypeBool = &irANamedTypeRef{RefAlias: "Prim.Boolean"}
+	exprTypeInt  = &irGoNamedTypeRef{RefAlias: "Prim.Int"}
+	exprTypeNum  = &irGoNamedTypeRef{RefAlias: "Prim.Number"}
+	exprTypeStr  = &irGoNamedTypeRef{RefAlias: "Prim.String"}
+	exprTypeBool = &irGoNamedTypeRef{RefAlias: "Prim.Boolean"}
 )
 
 type irAst struct {
@@ -31,11 +31,11 @@ type irAst struct {
 }
 
 type irTcInstImpl struct {
-	tci            *irMTypeClassInst
+	tci            *irPsTypeClassInst
 	tciAlias       string
 	tciPassThrough bool
 	tciProper      struct {
-		tc            *irMTypeClass
+		tc            *irPsTypeClass
 		tcMod         *modPkg
 		tcMemberImpls []irA
 	}
@@ -45,15 +45,15 @@ type irA interface {
 	Ast() *irAst
 	Base() *irABase
 	Equiv(irA) bool // not struct equality but semantic equivalency comparison (ignoring comments, parent etc) as we need it where we do
-	ExprType() *irANamedTypeRef
+	ExprType() *irGoNamedTypeRef
 	Parent() irA
 }
 
 type irABase struct {
-	irANamedTypeRef                       // don't use all of this, but exprs with names and/or types do as needed
-	Comments        []*udevps.CoreComment `json:",omitempty"`
-	parent          irA
-	root            *irAst // usually nil but set in top-level irABlock. for the rare occasions a irA impl needs this, it uses Ast() which traverses parents to the root then stores in ast --- rather than passing the root to all irA constructors etc
+	irGoNamedTypeRef                       // don't use all of this, but exprs with names and/or types do as needed
+	Comments         []*udevps.CoreComment `json:",omitempty"`
+	parent           irA
+	root             *irAst // usually nil but set in top-level irABlock. for the rare occasions a irA impl needs this, it uses Ast() which traverses parents to the root then stores in ast --- rather than passing the root to all irA constructors etc
 }
 
 func (me *irABase) Ast() *irAst {
@@ -63,12 +63,12 @@ func (me *irABase) Ast() *irAst {
 	return me.root
 }
 
-func (me *irABase) Base() *irABase             { return me }
-func (me *irABase) ExprType() *irANamedTypeRef { return &me.irANamedTypeRef }
-func (me *irABase) Parent() irA                { return me.parent }
+func (me *irABase) Base() *irABase              { return me }
+func (me *irABase) ExprType() *irGoNamedTypeRef { return &me.irGoNamedTypeRef }
+func (me *irABase) Parent() irA                 { return me.parent }
 func (me *irABase) Equiv(cmp irA) bool {
 	ab := cmp.Base()
-	return (me == nil && ab == nil) || (me != nil && ab != nil && me.irANamedTypeRef.equiv(&ab.irANamedTypeRef) && me.NameGo == ab.NameGo && me.NamePs == ab.NamePs)
+	return (me == nil && ab == nil) || (me != nil && ab != nil && me.irGoNamedTypeRef.equiv(&ab.irGoNamedTypeRef) && me.NameGo == ab.NameGo && me.NamePs == ab.NamePs)
 }
 
 func (me *irABase) isTopLevel() bool {
@@ -146,13 +146,13 @@ func (me *irALet) isConstable() bool {
 	return false
 }
 
-func (me *irALet) ExprType() *irANamedTypeRef {
+func (me *irALet) ExprType() *irGoNamedTypeRef {
 	if !me.hasTypeInfo() {
 		if me.LetVal != nil {
 			me.copyTypeInfoFrom(me.LetVal.ExprType())
 		}
 	}
-	return &me.irANamedTypeRef
+	return &me.irGoNamedTypeRef
 }
 
 func (me *irALet) setterFromCallTo(fn *irALet) (set *irASet) {
@@ -181,7 +181,7 @@ func (me *irALet) setters() (all []*irASet) {
 type irASym struct {
 	irABase
 	refto    irA
-	reftoarg *irANamedTypeRef
+	reftoarg *irGoNamedTypeRef
 	Sym__    interface{} // useless except we want to see it in the gonadast.json
 }
 
@@ -197,7 +197,7 @@ func (me *irASym) Equiv(sym irA) bool {
 	return s == nil && me == nil
 }
 
-func (me *irASym) ExprType() *irANamedTypeRef {
+func (me *irASym) ExprType() *irGoNamedTypeRef {
 	if !me.hasTypeInfo() {
 		if ref := me.refTo(); ref != nil {
 			if reft := ref.ExprType(); reft.hasTypeInfo() {
@@ -210,7 +210,7 @@ func (me *irASym) ExprType() *irANamedTypeRef {
 			me.copyTypeInfoFrom(refarg)
 		}
 	}
-	return &me.irANamedTypeRef
+	return &me.irGoNamedTypeRef
 }
 
 func (me *irASym) isConstable() bool {
@@ -233,7 +233,7 @@ func (me *irASym) refTo() irA {
 	return me.refto
 }
 
-func (me *irASym) refToArg() (argref *irANamedTypeRef) {
+func (me *irASym) refToArg() (argref *irGoNamedTypeRef) {
 	if argref = me.reftoarg; argref == nil {
 		me.perFuncUp(func(outerfunc *irAFunc) {
 			if argref == nil {
@@ -280,8 +280,8 @@ type irALitStr struct {
 	LitStr string
 }
 
-func (_ *irALitStr) ExprType() *irANamedTypeRef { return exprTypeStr }
-func (me *irALitStr) isConstable() bool         { return true }
+func (_ *irALitStr) ExprType() *irGoNamedTypeRef { return exprTypeStr }
+func (me *irALitStr) isConstable() bool          { return true }
 
 func (me *irALitStr) Equiv(cmp irA) bool {
 	c, _ := cmp.(*irALitStr)
@@ -293,8 +293,8 @@ type irALitBool struct {
 	LitBool bool
 }
 
-func (_ *irALitBool) ExprType() *irANamedTypeRef { return exprTypeBool }
-func (_ irALitBool) isConstable() bool           { return true }
+func (_ *irALitBool) ExprType() *irGoNamedTypeRef { return exprTypeBool }
+func (_ irALitBool) isConstable() bool            { return true }
 
 func (me *irALitBool) Equiv(cmp irA) bool {
 	c, _ := cmp.(*irALitBool)
@@ -306,8 +306,8 @@ type irALitNum struct {
 	LitNum float64
 }
 
-func (_ *irALitNum) ExprType() *irANamedTypeRef { return exprTypeNum }
-func (_ irALitNum) isConstable() bool           { return true }
+func (_ *irALitNum) ExprType() *irGoNamedTypeRef { return exprTypeNum }
+func (_ irALitNum) isConstable() bool            { return true }
 
 func (me *irALitNum) Equiv(cmp irA) bool {
 	c, _ := cmp.(*irALitNum)
@@ -324,8 +324,8 @@ func (me *irALitInt) Equiv(cmp irA) bool {
 	return (me == nil && c == nil) || (me != nil && c != nil && me.LitInt == c.LitInt)
 }
 
-func (_ *irALitInt) ExprType() *irANamedTypeRef { return exprTypeInt }
-func (_ irALitInt) isConstable() bool           { return true }
+func (_ *irALitInt) ExprType() *irGoNamedTypeRef { return exprTypeInt }
+func (_ irALitInt) isConstable() bool            { return true }
 
 type irABlock struct {
 	irABase
@@ -354,7 +354,7 @@ func (me *irABlock) add(asts ...irA) {
 	me.Body = append(me.Body, asts...)
 }
 
-func (me *irABlock) countSymRefs(gonames irANamedTypeRefs) (m map[string]int) {
+func (me *irABlock) countSymRefs(gonames irGoNamedTypeRefs) (m map[string]int) {
 	m = make(map[string]int, len(gonames))
 	for _, goname := range gonames {
 		m[goname.NameGo] = 0
@@ -428,17 +428,17 @@ func (me irAOp1) isConstable() bool {
 	return false
 }
 
-func (me *irAOp1) ExprType() *irANamedTypeRef {
+func (me *irAOp1) ExprType() *irGoNamedTypeRef {
 	if !me.hasTypeInfo() {
 		if me.Op1 == "!" {
 			me.copyTypeInfoFrom(exprTypeBool)
 		} else if ofb := me.Of.Base(); ofb.hasTypeInfo() {
-			if me.copyTypeInfoFrom(&ofb.irANamedTypeRef); me.Op1 == "&" {
+			if me.copyTypeInfoFrom(&ofb.irGoNamedTypeRef); me.Op1 == "&" {
 				me.turnRefIntoRefPtr()
 			}
 		}
 	}
-	return &me.irANamedTypeRef
+	return &me.irGoNamedTypeRef
 }
 
 type irAOp2 struct {
@@ -456,7 +456,7 @@ func (me *irAOp2) Equiv(cmp irA) bool {
 	return c == nil && me == nil
 }
 
-func (me *irAOp2) ExprType() *irANamedTypeRef {
+func (me *irAOp2) ExprType() *irGoNamedTypeRef {
 	if !me.hasTypeInfo() {
 		switch me.Op2 {
 		case "==", "!=", "<", "<=", ">", ">=", "&&", "||", "&", "|":
@@ -469,7 +469,7 @@ func (me *irAOp2) ExprType() *irANamedTypeRef {
 			}
 		}
 	}
-	return &me.irANamedTypeRef
+	return &me.irGoNamedTypeRef
 }
 
 func (me irAOp2) isConstable() bool {
@@ -528,7 +528,7 @@ type irAIf struct {
 	Else *irABlock
 }
 
-func (_ *irAIf) ExprType() *irANamedTypeRef { return exprTypeBool }
+func (_ *irAIf) ExprType() *irGoNamedTypeRef { return exprTypeBool }
 
 func (me *irAIf) condNegates(other *irAIf) bool {
 	mop, _ := me.If.(*irAOp1)
@@ -629,7 +629,7 @@ func (me *irARet) Equiv(cmp irA) bool {
 	return me.Base().Equiv(c) && (c == nil || me.RetArg.Equiv(c.RetArg))
 }
 
-func (me *irARet) ExprType() *irANamedTypeRef {
+func (me *irARet) ExprType() *irGoNamedTypeRef {
 	if !me.hasTypeInfo() {
 		if me.RetArg != nil {
 			if tret := me.RetArg.ExprType(); tret.hasTypeInfo() {
@@ -637,7 +637,7 @@ func (me *irARet) ExprType() *irANamedTypeRef {
 			}
 		}
 	}
-	return &me.irANamedTypeRef
+	return &me.irGoNamedTypeRef
 }
 
 type irAPanic struct {
@@ -716,7 +716,7 @@ func (me *irAIsType) Equiv(cmp irA) bool {
 	return (me == nil && c == nil) || (me != nil && c != nil && me.TypeToTest == c.TypeToTest && me.names == c.names && me.ExprToTest.Equiv(c.ExprToTest))
 }
 
-func (_ *irAIsType) ExprType() *irANamedTypeRef { return exprTypeBool }
+func (_ *irAIsType) ExprType() *irGoNamedTypeRef { return exprTypeBool }
 
 type irAToType struct {
 	irABase
@@ -725,11 +725,11 @@ type irAToType struct {
 	TypeName   string
 }
 
-func (me *irAToType) ExprType() *irANamedTypeRef {
+func (me *irAToType) ExprType() *irGoNamedTypeRef {
 	if !me.hasTypeInfo() {
-		me.copyTypeInfoFrom(&irANamedTypeRef{RefAlias: ustr.PrefixWithSep(me.TypePkg, ".", me.TypeName)})
+		me.copyTypeInfoFrom(&irGoNamedTypeRef{RefAlias: ustr.PrefixWithSep(me.TypePkg, ".", me.TypeName)})
 	}
-	return &me.irANamedTypeRef
+	return &me.irGoNamedTypeRef
 }
 
 func (me *irAToType) Equiv(cmp irA) bool {
@@ -748,7 +748,7 @@ func (me *irAPkgSym) Equiv(cmp irA) bool {
 	return (me == nil && c == nil) || (me != nil && c != nil && me.PkgName == c.PkgName && me.Symbol == c.Symbol)
 }
 
-func (me *irAPkgSym) ExprType() *irANamedTypeRef {
+func (me *irAPkgSym) ExprType() *irGoNamedTypeRef {
 	if !me.hasTypeInfo() {
 		if mod := findModuleByPName(me.PkgName); mod != nil {
 			if ref := mod.irMeta.goValDeclByGoName(me.Symbol); ref != nil {
@@ -756,10 +756,10 @@ func (me *irAPkgSym) ExprType() *irANamedTypeRef {
 			}
 		}
 		if !me.hasTypeInfo() {
-			me.copyTypeInfoFrom(&irANamedTypeRef{RefAlias: ustr.PrefixWithSep(me.PkgName, ".", me.Symbol)})
+			me.copyTypeInfoFrom(&irGoNamedTypeRef{RefAlias: ustr.PrefixWithSep(me.PkgName, ".", me.Symbol)})
 		}
 	}
-	return &me.irANamedTypeRef
+	return &me.irGoNamedTypeRef
 }
 
 func (me *irAPkgSym) symStr() string {

@@ -11,16 +11,16 @@ import (
 )
 
 type irMeta struct {
-	Exports           []string            `json:",omitempty"`
-	Imports           irMPkgRefs          `json:",omitempty"`
-	EnvTypeSyns       []*irMNamedTypeRef  `json:",omitempty"`
-	EnvTypeClasses    []*irMTypeClass     `json:",omitempty"`
-	EnvTypeClassInsts []*irMTypeClassInst `json:",omitempty"`
-	EnvTypeDataDecls  []*irMTypeDataDef   `json:",omitempty"`
-	EnvValDecls       []*irMNamedTypeRef  `json:",omitempty"`
-	GoTypeDefs        irANamedTypeRefs    `json:",omitempty"`
-	GoValDecls        irANamedTypeRefs    `json:",omitempty"`
-	ForeignImp        *irMPkgRef          `json:",omitempty"`
+	Exports           []string             `json:",omitempty"`
+	Imports           irMPkgRefs           `json:",omitempty"`
+	EnvTypeSyns       []*irPsNamedTypeRef  `json:",omitempty"`
+	EnvTypeClasses    []*irPsTypeClass     `json:",omitempty"`
+	EnvTypeClassInsts []*irPsTypeClassInst `json:",omitempty"`
+	EnvTypeDataDecls  []*irPsTypeDataDef   `json:",omitempty"`
+	EnvValDecls       []*irPsNamedTypeRef  `json:",omitempty"`
+	GoTypeDefs        irGoNamedTypeRefs    `json:",omitempty"`
+	GoValDecls        irGoNamedTypeRefs    `json:",omitempty"`
+	ForeignImp        *irMPkgRef           `json:",omitempty"`
 
 	imports []*modPkg
 
@@ -193,7 +193,7 @@ func (me *irMeta) populateFromLoaded() {
 func (me *irMeta) populateGoValDecls() {
 	for _, evd := range me.EnvValDecls {
 		tdict := map[string][]string{}
-		gvd := &irANamedTypeRef{Export: me.hasExport(evd.Name)}
+		gvd := &irGoNamedTypeRef{Export: me.hasExport(evd.Name)}
 		gvd.setBothNamesFromPsName(evd.Name)
 		for gtd := me.goTypeDefByGoName(gvd.NameGo); gtd != nil; gtd = me.goTypeDefByGoName(gvd.NameGo) {
 			gvd.NameGo += "ˆ"
@@ -201,7 +201,7 @@ func (me *irMeta) populateGoValDecls() {
 		for gvd2 := me.goValDeclByGoName(gvd.NameGo); gvd2 != nil; gvd2 = me.goValDeclByGoName(gvd.NameGo) {
 			gvd.NameGo += "ˇ"
 		}
-		gvd.setRefFrom(me.toIrATypeRef(tdict, evd.Ref))
+		gvd.setRefFrom(me.toIrGoTypeRef(tdict, evd.Ref))
 		if gvd.RefStruct != nil && len(gvd.RefStruct.Fields) > 0 {
 			for _, gtd := range me.GoTypeDefs {
 				if gtd.RefStruct != nil && gtd.RefStruct.equiv(gvd.RefStruct) {
@@ -214,7 +214,7 @@ func (me *irMeta) populateGoValDecls() {
 	}
 }
 
-func (me *irMeta) goValDeclByGoName(goname string) *irANamedTypeRef {
+func (me *irMeta) goValDeclByGoName(goname string) *irGoNamedTypeRef {
 	for _, gvd := range me.GoValDecls {
 		if gvd.NameGo == goname {
 			return gvd
@@ -223,7 +223,7 @@ func (me *irMeta) goValDeclByGoName(goname string) *irANamedTypeRef {
 	return nil
 }
 
-func (me *irMeta) goValDeclByPsName(psname string) *irANamedTypeRef {
+func (me *irMeta) goValDeclByPsName(psname string) *irGoNamedTypeRef {
 	for _, gvd := range me.GoValDecls {
 		if gvd.NamePs == psname {
 			return gvd

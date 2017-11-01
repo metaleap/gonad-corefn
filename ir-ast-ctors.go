@@ -7,12 +7,12 @@ import (
 
 func ªA(exprs ...irA) *irALitArr {
 	a := &irALitArr{ArrVals: exprs}
-	a.RefArray = &irATypeRefArray{}
+	a.RefArray = &irGoTypeRefArray{}
 	typefound := false
 	for _, expr := range a.ArrVals {
 		eb := expr.Base()
 		if eb.parent = a; !typefound && eb.hasTypeInfo() {
-			a.RefArray.Of = &eb.irANamedTypeRef
+			a.RefArray.Of = &eb.irGoNamedTypeRef
 		}
 	}
 	return a
@@ -36,10 +36,10 @@ func ªI(literal int) *irALitInt {
 	return a
 }
 
-func ªO(typeref *irANamedTypeRef, fields ...*irALitObjField) *irALitObj {
+func ªO(typeref *irGoNamedTypeRef, fields ...*irALitObjField) *irALitObj {
 	a := &irALitObj{ObjFields: fields}
 	if typeref != nil {
-		a.irANamedTypeRef = *typeref
+		a.irGoNamedTypeRef = *typeref
 	}
 	for _, of := range a.ObjFields {
 		of.parent = a
@@ -81,9 +81,9 @@ func ªComments(comments ...*udevps.CoreComment) *irAComments {
 	return a
 }
 
-func ªConst(name *irANamedTypeRef, val irA) *irAConst {
+func ªConst(name *irGoNamedTypeRef, val irA) *irAConst {
 	a, v := &irAConst{ConstVal: val}, val.Base()
-	v.parent, a.irANamedTypeRef = a, v.irANamedTypeRef
+	v.parent, a.irGoNamedTypeRef = a, v.irGoNamedTypeRef
 	a.NameGo, a.NamePs = name.NameGo, name.NamePs
 	return a
 }
@@ -138,7 +138,7 @@ func ªLet(namego string, nameps string, val irA) *irALet {
 	if val != nil {
 		vb := val.Base()
 		vb.parent = a
-		a.irANamedTypeRef = vb.irANamedTypeRef
+		a.irGoNamedTypeRef = vb.irGoNamedTypeRef
 	}
 	if namego == "" && nameps != "" {
 		a.setBothNamesFromPsName(nameps)
@@ -193,15 +193,15 @@ func ªSet(left irA, right irA) *irASet {
 	a := &irASet{SetLeft: left, ToRight: right}
 	a.SetLeft.Base().parent, a.ToRight.Base().parent = a, a
 	if rb := right.Base(); rb.hasTypeInfo() {
-		a.irANamedTypeRef = rb.irANamedTypeRef
+		a.irGoNamedTypeRef = rb.irGoNamedTypeRef
 	}
 	return a
 }
 
-func ªsetVarInGroup(namego string, right irA, typespec *irANamedTypeRef) *irASet {
+func ªsetVarInGroup(namego string, right irA, typespec *irGoNamedTypeRef) *irASet {
 	a := ªSet(ªSymGo(namego), right)
 	if typespec != nil && typespec.hasTypeInfo() {
-		a.irANamedTypeRef = *typespec
+		a.irGoNamedTypeRef = *typespec
 	}
 	a.isInVarGroup = true
 	return a
