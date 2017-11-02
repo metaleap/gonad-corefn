@@ -299,13 +299,12 @@ func (me *irMeta) tcMember(name string) *irPsTypeClassMember {
 	return nil
 }
 
-func (me *irMeta) newConstr(from *udevps.CoreConstr) (c *irMConstraint) {
-	c = &irMConstraint{Class: from.Cls, Data: from.Data}
+func (me *irMeta) newConstr(from *udevps.CoreConstr) *irMConstraint {
+	c := &irMConstraint{Class: from.Cls, Data: from.Data}
 	for _, fromarg := range from.Args {
 		c.Args = append(c.Args, me.newTRefFromCoreTag(fromarg))
 	}
-	return
-
+	return c
 }
 
 func (me *irMeta) newTRefFromCoreTag(tc *udevps.CoreTagType) *irPsTypeRef {

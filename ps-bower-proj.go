@@ -26,10 +26,12 @@ type psBowerFile struct {
 			GoNamespaceDeps string
 		}
 		CodeGen struct {
-			// TypeClasses2Interfaces bool
-			// SaturateFuncArities    bool
-			FlattenIfs             bool
 			PtrStructMinFieldCount int
+			Fmt                    struct {
+				StructName_InstImpl string
+				StructName_DataCtor string
+				IfaceName_TypeClass string
+			}
 		}
 
 		loadedFromJson bool
@@ -104,6 +106,16 @@ func (me *psBowerProject) loadFromJsonFile() (err error) {
 			}
 			if cfg.CodeGen.PtrStructMinFieldCount == 0 {
 				cfg.CodeGen.PtrStructMinFieldCount = 2
+			}
+			fmt := &cfg.CodeGen.Fmt
+			if fmt.StructName_InstImpl == "" {
+				fmt.StructName_InstImpl = "ᛌ%s"
+			}
+			if fmt.IfaceName_TypeClass == "" {
+				fmt.IfaceName_TypeClass = "%sᛌ"
+			}
+			if fmt.StructName_DataCtor == "" {
+				fmt.StructName_DataCtor = "{D}۰{C}"
 			}
 			err = ufs.EnsureDirExists(cfg.Out.GoDirSrcPath)
 			cfg.loadedFromJson = true

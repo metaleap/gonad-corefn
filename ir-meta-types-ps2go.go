@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 )
 
 func (me *irMeta) populateGoTypeDefs() {
@@ -20,7 +21,7 @@ func (me *irMeta) populateGoTypeDefs() {
 	for _, tc := range me.EnvTypeClasses {
 		tdict, gtd := map[string][]string{}, &irGoNamedTypeRef{Export: me.hasExport(tc.Name)}
 		gtd.setBothNamesFromPsName(tc.Name)
-		// gtd.NameGo += "ᛌ"
+		gtd.NameGo = fmt.Sprintf(Proj.BowerJsonFile.Gonad.CodeGen.Fmt.IfaceName_TypeClass, gtd.NameGo)
 		gtd.Ref.I = &irGoTypeRefInterface{origClass: tc}
 		for _, tcm := range tc.Members {
 			method := &irGoNamedTypeRef{Export: true, Ref: irGoTypeRef{F: &irGoTypeRefFunc{origTcMem: tcm}}}
@@ -34,24 +35,9 @@ func (me *irMeta) populateGoTypeDefs() {
 
 	//	TYPE-CLASS INSTANCES
 	for _, tci := range me.EnvTypeClassInsts {
-		gtd := &irGoNamedTypeRef{Export: me.hasExport(tci.Name), Ref: irGoTypeRef{S: &irGoTypeRefStruct{origInst: tci}}}
+		gtd := &irGoNamedTypeRef{Export: false, Ref: irGoTypeRef{S: &irGoTypeRefStruct{origInst: tci}}}
 		gtd.setBothNamesFromPsName(tci.Name)
-		for _, tcs := range me.mod.coreimp.DeclEnv.ClassDicts {
-			if insts, _ := tcs[tci.ClassName]; insts != nil {
-				if instdef, _ := insts[tci.Name]; instdef != nil {
-					if envval := me.EnvValDecls.byName(instdef.Value); envval != nil && envval.Ref.A != nil && envval.Ref.A.Right.R != nil && envval.Ref.A.Left.Q != nil && envval.Ref.A.Left.Q.QName == "Prim.Record" {
-						for rcons := envval.Ref.A.Right.R; rcons != nil; rcons = rcons.Right.R {
-							method := &irGoNamedTypeRef{Export: true, Ref: irGoTypeRef{F: &irGoTypeRefFunc{}}}
-							method.setBothNamesFromPsName(rcons.Label)
-							tdict := map[string][]string{}
-							method.Ref.F.copyArgTypesOnlyFrom(true, me.toIrGoTypeRef(tdict, rcons.Left).F)
-							method.Ref.Orig = rcons.Left
-							gtd.Ref.S.Methods = append(gtd.Ref.S.Methods, method)
-						}
-					}
-				}
-			}
-		}
+		gtd.NameGo = fmt.Sprintf(Proj.BowerJsonFile.Gonad.CodeGen.Fmt.StructName_InstImpl, gtd.NameGo)
 		me.GoTypeDefs = append(me.GoTypeDefs, gtd)
 	}
 
@@ -84,7 +70,7 @@ func (me *irMeta) toIrGoDataDefs(typedatadecls []*irPsTypeDataDef) (gtds irGoNam
 				for _, ctor := range td.Ctors {
 					ctor.ŧ = &irGoNamedTypeRef{Export: me.hasExport(gid.NamePs + "ĸ" + ctor.Name)}
 					ctor.ŧ.Ref.S = &irGoTypeRefStruct{PassByPtr: (hasctorargs && len(ctor.Args) >= Proj.BowerJsonFile.Gonad.CodeGen.PtrStructMinFieldCount)}
-					ctor.ŧ.setBothNamesFromPsName(gid.NamePs + "۰" + ctor.Name)
+					ctor.ŧ.setBothNamesFromPsName(strings.NewReplacer("{D}", gid.NamePs, "{C}", ctor.Name).Replace(Proj.BowerJsonFile.Gonad.CodeGen.Fmt.StructName_DataCtor))
 					ctor.ŧ.NamePs = ctor.Name
 					for ia, ctorarg := range ctor.Args {
 						field := &irGoNamedTypeRef{}
