@@ -140,7 +140,6 @@ func (me *irGoTypeRef) setFrom(tref interface{}) {
 		me.P = tr
 	case *irGoTypeRefAlias:
 		me.Q = tr
-	case nil:
 	default:
 		panicWithType("setFrom", tref, "tref")
 	}
