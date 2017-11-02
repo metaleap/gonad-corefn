@@ -73,7 +73,7 @@ func (me *irMeta) toIrGoDataDefs(typedatadecls []*irPsTypeDataDef) (gtds irGoNam
 					ctor.ŧ = &irGoNamedTypeRef{Export: me.hasExport(gid.NamePs + "ĸ" + ctor.Name)}
 					ctor.ŧ.Ref.S = &irGoTypeRefStruct{PassByPtr: (hasctorargs && numargs >= cfg.PtrStructMinFieldCount)}
 					ctor.ŧ.setBothNamesFromPsName(strings.NewReplacer("{D}", gid.NamePs, "{C}", ctor.Name).Replace(cfg.Fmt.StructName_DataCtor))
-					ctor.ŧ.NamePs = ctor.Name
+					ctor.ŧ.NamePs = "ĸ" + ctor.Name
 					for ia, ctorarg := range ctor.Args {
 						field := &irGoNamedTypeRef{}
 						if field.Ref.setFrom(me.toIrGoTypeRef(tdict, ctorarg.Type)); field.Ref.Q != nil && field.Ref.Q.QName == (me.mod.qName+"."+ctor.Name) {

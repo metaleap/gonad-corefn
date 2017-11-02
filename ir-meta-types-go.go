@@ -300,18 +300,19 @@ func (me *irMeta) goTypeDefByGoName(goname string) *irGoNamedTypeRef {
 	return nil
 }
 
-func (me *irMeta) goTypeDefByPsName(psname string) *irGoNamedTypeRef {
-	var gtdi *irGoNamedTypeRef
+func (me *irMeta) goTypeDefByPsName(psname string, isctor bool) *irGoNamedTypeRef {
+	if isctor && strings.HasPrefix(psname, "ĸ") {
+		psname = psname[len("ĸ"):]
+	}
+	isntctor := !isctor
 	for _, gtd := range me.GoTypeDefs {
 		if gtd.NamePs == psname {
-			if gtd.Ref.I != nil {
-				gtdi = gtd
-			} else {
+			if isntctor || gtd.Ref.S != nil {
 				return gtd
 			}
 		}
 	}
-	return gtdi
+	return nil
 }
 
 func (me *irAst) resolveGoTypeRefFromQName(tref string) (pname string, tname string) {
@@ -370,7 +371,7 @@ func (me *irAst) resolveGoTypeRefFromQName(tref string) (pname string, tname str
 		mod = me.mod
 	}
 	if (!wasprim) && mod != nil {
-		if gtd := mod.irMeta.goTypeDefByPsName(tname); gtd != nil {
+		if gtd := mod.irMeta.goTypeDefByPsName(tname, false); gtd != nil {
 			tname = gtd.NameGo
 		}
 	}

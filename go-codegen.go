@@ -486,7 +486,7 @@ func (me *irAst) codeGenTypeRef(w io.Writer, gtd *irGoNamedTypeRef, indlevel int
 		}
 		me.codeGenFuncArgs(w, indlevel, gtd.Ref.F.Args, false, isfuncwithbodynotjustsig)
 		me.codeGenFuncArgs(w, indlevel, gtd.Ref.F.Rets, true, isfuncwithbodynotjustsig)
-	} else {
+	} else if len(gtd.Ref.origs) > 0 {
 		fmt.Fprint(w, "𝒈.𝑻/* "+gtd.Ref.origs.String()+" */")
 		me.irM.ensureImp("", "github.com/gonadz/-", "").emitted = true
 	}

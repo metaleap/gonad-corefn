@@ -118,7 +118,7 @@ func findGoTypeByPsQName(curmod *modPkg, qname string) (*modPkg, *irGoNamedTypeR
 			}
 		}
 	}
-	return mod, mod.irMeta.goTypeDefByPsName(tname)
+	return mod, mod.irMeta.goTypeDefByPsName(tname, false)
 }
 
 func irASymStrOr(me irA, or string) string {
