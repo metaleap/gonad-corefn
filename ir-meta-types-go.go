@@ -301,13 +301,10 @@ func (me *irMeta) goTypeDefByGoName(goname string) *irGoNamedTypeRef {
 }
 
 func (me *irMeta) goTypeDefByPsName(psname string, isctor bool) *irGoNamedTypeRef {
-	if isctor && strings.HasPrefix(psname, "ĸ") {
-		psname = psname[len("ĸ"):]
-	}
-	isntctor := !isctor
+	isnoctor := !isctor
 	for _, gtd := range me.GoTypeDefs {
 		if gtd.NamePs == psname {
-			if isntctor || gtd.Ref.S != nil {
+			if isnoctor || gtd.Ref.S != nil {
 				return gtd
 			}
 		}
