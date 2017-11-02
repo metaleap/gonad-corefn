@@ -117,15 +117,6 @@ func (me *irGoTypeRef) equiv(cmp *irGoTypeRef) bool {
 		(me != nil && cmp != nil && me.Q.equiv(cmp.Q) && me.I.equiv(cmp.I) && me.F.equiv(cmp.F) && me.S.equiv(cmp.S) && me.A.equiv(cmp.A) && me.P.equiv(cmp.P))
 }
 
-func (me *irGoTypeRef) typeVars() (names []string) {
-	for _, orig := range me.origs {
-		if orig.V != nil {
-			names = append(names, orig.V.Name)
-		}
-	}
-	return
-}
-
 func (me *irGoTypeRef) setFrom(tref interface{}) {
 	me.A, me.F, me.I, me.P, me.Q, me.S = nil, nil, nil, nil, nil, nil
 	switch tr := tref.(type) {
@@ -221,8 +212,7 @@ func (me *irGoTypeRefFunc) copyArgTypesOnlyFrom(namesIfMeNil bool, from *irGoTyp
 		me.Rets = copyargs(me.Rets, from.F.Rets)
 	} else {
 		me.Args = irGoNamedTypeRefs{}
-		me.Rets = irGoNamedTypeRefs{&irGoNamedTypeRef{}}
-		me.Rets[0].Ref = *from
+		me.Rets = irGoNamedTypeRefs{&irGoNamedTypeRef{Ref: *from}}
 	}
 }
 
