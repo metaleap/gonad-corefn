@@ -12,7 +12,7 @@ func (me *irMeta) populateGoTypeDefs() {
 			gtd, tdict := &irGoNamedTypeRef{Export: me.hasExport(ts.Name)}, map[string][]string{}
 			gtd.setBothNamesFromPsName(ts.Name)
 			gtd.Ref.setFrom(me.toIrGoTypeRef(tdict, ts.Ref))
-			gtd.Ref.Orig = ts.Ref
+			gtd.Ref.origs = irPsTypeRefs{ts.Ref}
 			me.GoTypeDefs = append(me.GoTypeDefs, gtd)
 		}
 	}
@@ -26,8 +26,8 @@ func (me *irMeta) populateGoTypeDefs() {
 		for _, tcm := range tc.Members {
 			method := &irGoNamedTypeRef{Export: true, Ref: irGoTypeRef{F: &irGoTypeRefFunc{origTcMem: tcm}}}
 			method.setBothNamesFromPsName(tcm.Name)
-			method.Ref.F.copyArgTypesOnlyFrom(false, me.toIrGoTypeRef(tdict, tcm.Ref).F)
-			method.Ref.Orig = tcm.Ref
+			method.Ref.F.copyArgTypesOnlyFrom(false, me.toIrGoTypeRef(tdict, tcm.Ref))
+			method.Ref.origs = irPsTypeRefs{tcm.Ref}
 			gtd.Ref.I.Methods = append(gtd.Ref.I.Methods, method)
 		}
 		me.GoTypeDefs = append(me.GoTypeDefs, gtd)
@@ -67,10 +67,12 @@ func (me *irMeta) toIrGoDataDefs(typedatadecls []*irPsTypeDataDef) (gtds irGoNam
 				gid.Ref.I = nil
 				gid.Ref.setFrom(me.toIrGoTypeRef(tdict, td.Ctors[0].Args[0].Type))
 			} else {
+				cfg := &Proj.BowerJsonFile.Gonad.CodeGen
 				for _, ctor := range td.Ctors {
+					numargs := len(ctor.Args)
 					ctor.ŧ = &irGoNamedTypeRef{Export: me.hasExport(gid.NamePs + "ĸ" + ctor.Name)}
-					ctor.ŧ.Ref.S = &irGoTypeRefStruct{PassByPtr: (hasctorargs && len(ctor.Args) >= Proj.BowerJsonFile.Gonad.CodeGen.PtrStructMinFieldCount)}
-					ctor.ŧ.setBothNamesFromPsName(strings.NewReplacer("{D}", gid.NamePs, "{C}", ctor.Name).Replace(Proj.BowerJsonFile.Gonad.CodeGen.Fmt.StructName_DataCtor))
+					ctor.ŧ.Ref.S = &irGoTypeRefStruct{PassByPtr: (hasctorargs && numargs >= cfg.PtrStructMinFieldCount)}
+					ctor.ŧ.setBothNamesFromPsName(strings.NewReplacer("{D}", gid.NamePs, "{C}", ctor.Name).Replace(cfg.Fmt.StructName_DataCtor))
 					ctor.ŧ.NamePs = ctor.Name
 					for ia, ctorarg := range ctor.Args {
 						field := &irGoNamedTypeRef{}
@@ -78,7 +80,7 @@ func (me *irMeta) toIrGoDataDefs(typedatadecls []*irPsTypeDataDef) (gtds irGoNam
 							//	an inconstructable self-recursive type, aka Data.Void
 							field.turnRefIntoRefPtr()
 						}
-						field.NameGo = fmt.Sprintf("%s%d", sanitizeSymbolForGo(ctor.Name, true), ia)
+						field.NameGo = strings.NewReplacer("{C}", sanitizeSymbolForGo(ctor.Name, true), "{I}", fmt.Sprint(ia)).Replace(cfg.Fmt.FieldName_DataCtor)
 						field.NamePs = fmt.Sprintf("value%d", ia)
 						ctor.ŧ.Ref.S.Fields = append(ctor.ŧ.Ref.S.Fields, field)
 					}
@@ -93,12 +95,19 @@ func (me *irMeta) toIrGoDataDefs(typedatadecls []*irPsTypeDataDef) (gtds irGoNam
 
 func (me *irMeta) toIrGoTypeRef(tdict map[string][]string, tref *irPsTypeRef) *irGoTypeRef {
 	tAppl := tref.A
+	tConstr := tref.C
 	tCtor := tref.Q
+	tForall := tref.F
 	tRow := tref.R
 
-	gtr := irGoTypeRef{Orig: tref}
+	origs := irPsTypeRefs{tref}
+	gtr := &irGoTypeRef{}
 	if tCtor != nil {
 		gtr.Q = &irGoTypeRefAlias{QName: tCtor.QName}
+	} else if tConstr != nil {
+		gtr = me.toIrGoTypeRef(tdict, tConstr.Ref)
+	} else if tForall != nil {
+		gtr = me.toIrGoTypeRef(tdict, tForall.Ref)
 	} else if tRow != nil {
 		refstruc := &irGoTypeRefStruct{}
 		myfield := &irGoNamedTypeRef{Export: true}
@@ -113,22 +122,30 @@ func (me *irMeta) toIrGoTypeRef(tdict map[string][]string, tref *irPsTypeRef) *i
 	} else if tAppl != nil {
 		if leftctor := tAppl.Left.Q; leftctor != nil {
 			if leftctor.QName == "Prim.Record" {
-				return me.toIrGoTypeRef(tdict, tAppl.Right)
+				gtr = me.toIrGoTypeRef(tdict, tAppl.Right)
 			} else if leftctor.QName == "Prim.Array" {
 				refarr := &irGoTypeRefArray{Of: &irGoNamedTypeRef{}}
 				refarr.Of.Ref.setFrom(me.toIrGoTypeRef(tdict, tAppl.Right))
 				gtr.A = refarr
-			} else { // the well-known type-app (Maybe, Either, List, etcpp)
+			} else { // unary known-type app (like Maybe, List, Array etc)
+				gtr.Q = &irGoTypeRefAlias{QName: leftctor.QName}
 			}
 		} else if leftappl := tAppl.Left.A; leftappl != nil {
-			if leftappl.Left.A != nil && leftappl.Left.A.Left.Q != nil && leftappl.Left.A.Left.Q.QName == "Prim.Function" {
-				gtr.F = &irGoTypeRefFunc{}
-				gtr.F.Args = irGoNamedTypeRefs{&irGoNamedTypeRef{}}
-				gtr.F.Args[0].Ref.setFrom(me.toIrGoTypeRef(tdict, leftappl.Left.A.Right))
-				gtr.F.Rets = irGoNamedTypeRefs{&irGoNamedTypeRef{}}
-				gtr.F.Rets[0].Ref.setFrom(me.toIrGoTypeRef(tdict, leftappl.Right))
+			if leftappl.Left.Q != nil {
+				if leftappl.Left.Q.QName == "Prim.Function" {
+					gtr.F = &irGoTypeRefFunc{}
+					gtr.F.Args = irGoNamedTypeRefs{&irGoNamedTypeRef{}}
+					gtr.F.Args[0].Ref.setFrom(me.toIrGoTypeRef(tdict, leftappl.Right))
+					gtr.F.Rets = irGoNamedTypeRefs{&irGoNamedTypeRef{}}
+					gtr.F.Rets[0].Ref.setFrom(me.toIrGoTypeRef(tdict, tAppl.Right))
+				} else { // n>1-ary type app (like Either)
+					gtr.Q = &irGoTypeRefAlias{QName: leftappl.Left.Q.QName}
+				}
+			} else {
+				// println(tref.String())
 			}
 		}
 	}
-	return &gtr
+	gtr.origs = append(origs, gtr.origs...) // prepend "ours" in front, in case it has any from one of the above branches
+	return gtr
 }

@@ -30,6 +30,7 @@ type psBowerFile struct {
 			Fmt                    struct {
 				StructName_InstImpl string
 				StructName_DataCtor string
+				FieldName_DataCtor  string
 				IfaceName_TypeClass string
 			}
 		}
@@ -107,15 +108,18 @@ func (me *psBowerProject) loadFromJsonFile() (err error) {
 			if cfg.CodeGen.PtrStructMinFieldCount == 0 {
 				cfg.CodeGen.PtrStructMinFieldCount = 2
 			}
-			fmt := &cfg.CodeGen.Fmt
-			if fmt.StructName_InstImpl == "" {
-				fmt.StructName_InstImpl = "ᛌ%s"
+			fmts := &cfg.CodeGen.Fmt
+			if fmts.StructName_InstImpl == "" {
+				fmts.StructName_InstImpl = "ᛌ%s"
 			}
-			if fmt.IfaceName_TypeClass == "" {
-				fmt.IfaceName_TypeClass = "%sᛌ"
+			if fmts.IfaceName_TypeClass == "" {
+				fmts.IfaceName_TypeClass = "%sᛌ"
 			}
-			if fmt.StructName_DataCtor == "" {
-				fmt.StructName_DataCtor = "{D}۰{C}"
+			if fmts.StructName_DataCtor == "" {
+				fmts.StructName_DataCtor = "{D}۰{C}"
+			}
+			if fmts.FieldName_DataCtor == "" {
+				fmts.FieldName_DataCtor = "{C}ˈ{I}"
 			}
 			err = ufs.EnsureDirExists(cfg.Out.GoDirSrcPath)
 			cfg.loadedFromJson = true

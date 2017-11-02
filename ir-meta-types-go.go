@@ -109,19 +109,21 @@ type irGoTypeRef struct {
 	Q *irGoTypeRefAlias     `json:",omitempty"`
 	S *irGoTypeRefStruct    `json:",omitempty"`
 
-	Orig *irPsTypeRef `json:",omitempty"`
+	origs irPsTypeRefs
 }
 
 func (me *irGoTypeRef) equiv(cmp *irGoTypeRef) bool {
 	return (me == nil && cmp == nil) ||
-		(me != nil && cmp != nil && me.Q.equiv(cmp.Q) && me.I.equiv(cmp.I) && me.F.equiv(cmp.F) && me.S.equiv(cmp.S) && me.A.equiv(cmp.A) && me.P.equiv(cmp.P) && me.Orig.equiv(cmp.Orig))
+		(me != nil && cmp != nil && me.Q.equiv(cmp.Q) && me.I.equiv(cmp.I) && me.F.equiv(cmp.F) && me.S.equiv(cmp.S) && me.A.equiv(cmp.A) && me.P.equiv(cmp.P))
 }
 
-func (me *irGoTypeRef) typeVar() string {
-	if me.Orig != nil && me.Orig.V != nil {
-		return me.Orig.V.Name
+func (me *irGoTypeRef) typeVars() (names []string) {
+	for _, orig := range me.origs {
+		if orig.V != nil {
+			names = append(names, orig.V.Name)
+		}
 	}
-	return ""
+	return
 }
 
 func (me *irGoTypeRef) setFrom(tref interface{}) {
@@ -134,7 +136,7 @@ func (me *irGoTypeRef) setFrom(tref interface{}) {
 		me.I = tr.I
 		me.P = tr.P
 		me.S = tr.S
-		me.Orig = tr.Orig
+		me.origs = tr.origs
 	case *irGoTypeRefInterface:
 		me.I = tr
 	case *irGoTypeRefFunc:
@@ -197,7 +199,7 @@ type irGoTypeRefFunc struct {
 	impl      *irABlock
 }
 
-func (me *irGoTypeRefFunc) copyArgTypesOnlyFrom(namesIfMeNil bool, from *irGoTypeRefFunc) {
+func (me *irGoTypeRefFunc) copyArgTypesOnlyFrom(namesIfMeNil bool, from *irGoTypeRef) {
 	copyargs := func(meargs irGoNamedTypeRefs, fromargs irGoNamedTypeRefs) irGoNamedTypeRefs {
 		if numargsme := len(meargs); numargsme == 0 {
 			for _, arg := range fromargs {
@@ -214,9 +216,13 @@ func (me *irGoTypeRefFunc) copyArgTypesOnlyFrom(namesIfMeNil bool, from *irGoTyp
 		}
 		return meargs
 	}
-	if from != nil {
-		me.Args = copyargs(me.Args, from.Args)
-		me.Rets = copyargs(me.Rets, from.Rets)
+	if from.F != nil {
+		me.Args = copyargs(me.Args, from.F.Args)
+		me.Rets = copyargs(me.Rets, from.F.Rets)
+	} else {
+		me.Args = irGoNamedTypeRefs{}
+		me.Rets = irGoNamedTypeRefs{&irGoNamedTypeRef{}}
+		me.Rets[0].Ref = *from
 	}
 }
 

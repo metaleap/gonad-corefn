@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"strings"
 
 	"github.com/metaleap/go-util/dev/ps"
 	"github.com/metaleap/go-util/fs"
@@ -74,6 +75,10 @@ func (me *irMConstraint) equiv(cmp *irMConstraint) bool {
 	return (me == nil && cmp == nil) || (me != nil && cmp != nil && me.Class == cmp.Class && me.Data == cmp.Data && me.Args.equiv(cmp.Args))
 }
 
+func (me *irMConstraint) String() string {
+	return fmt.Sprintf("{%s %v %v}", me.Class, me.Args, me.Data)
+}
+
 type irPsTypeClassInst struct {
 	Name         string                  `json:"tcin,omitempty"`
 	ClassName    string                  `json:"tcicn,omitempty"`
@@ -136,42 +141,51 @@ func (me irPsTypeRefs) equiv(cmp irPsTypeRefs) bool {
 	return false
 }
 
+func (me irPsTypeRefs) String() string {
+	l := len(me)
+	strs := make([]string, l, l)
+	for i := 0; i < l; i++ {
+		strs[i] = me[i].String()
+	}
+	return "[ " + strings.Join(strs, " , ") + " ]"
+}
+
 type irPsTypeRef struct {
-	A   *irPsTypeRefAppl
-	C   *irPsTypeRefConstrained
-	E   *irPsTypeRefEmpty
-	F   *irPsTypeRefForall
-	Q   *irPsTypeRefConstruct
-	R   *irPsTypeRefRow
-	S   *irPsTypeRefSkolem
-	TlS *irPsTypeRefTlStr
-	V   *irPsTypeRefVar
+	A  *irPsTypeRefAppl
+	C  *irPsTypeRefConstrained
+	E  *irPsTypeRefEmpty
+	F  *irPsTypeRefForall
+	Q  *irPsTypeRefConstruct
+	R  *irPsTypeRefRow
+	S  *irPsTypeRefSkolem
+	Ts *irPsTypeRefTlStr
+	V  *irPsTypeRefVar
 }
 
 func (me *irPsTypeRef) equiv(cmp *irPsTypeRef) bool {
-	return (me == nil && cmp == nil) || (me != nil && cmp != nil && me.A.equiv(cmp.A) && me.C.equiv(cmp.C) && me.E.equiv(cmp.E) && me.F.equiv(cmp.F) && me.Q.equiv(cmp.Q) && me.R.equiv(cmp.R) && me.S.equiv(cmp.S) && me.TlS.equiv(cmp.TlS) && me.V.equiv(cmp.V))
+	return (me == nil && cmp == nil) || (me != nil && cmp != nil && me.A.equiv(cmp.A) && me.C.equiv(cmp.C) && me.E.equiv(cmp.E) && me.F.equiv(cmp.F) && me.Q.equiv(cmp.Q) && me.R.equiv(cmp.R) && me.S.equiv(cmp.S) && me.Ts.equiv(cmp.Ts) && me.V.equiv(cmp.V))
 }
 
 func (me *irPsTypeRef) String() string {
 	var buf bytes.Buffer
 	if w := &buf; me.A != nil {
-		fmt.Fprintf(w, "Appl{%s , %s}", me.A.Left.String(), me.A.Right.String())
+		fmt.Fprintf(w, "A{%s , %s}", me.A.Left.String(), me.A.Right.String())
 	} else if me.C != nil {
 		fmt.Fprintf(w, "C{%v , %s}", me.C.Constr, me.C.Ref.String())
 	} else if me.E != nil {
 		fmt.Fprint(w, "E{}")
 	} else if me.F != nil {
-		fmt.Fprintf(w, "Fa{%q , %d , %s}", me.F.Name, me.F.SkolemScope, me.F.Ref.String())
+		fmt.Fprintf(w, "F{%s , %d , %s}", me.F.Name, me.F.SkolemScope, me.F.Ref.String())
 	} else if me.Q != nil {
-		fmt.Fprintf(w, "Q{%q}", me.Q.QName)
+		fmt.Fprintf(w, "Q{%s}", me.Q.QName)
 	} else if me.R != nil {
-		fmt.Fprintf(w, "R{%q , %s , %s}", me.R.Label, me.R.Left.String(), me.R.Right.String())
+		fmt.Fprintf(w, "R{%s , %s , %s}", me.R.Label, me.R.Left.String(), me.R.Right.String())
 	} else if me.S != nil {
-		fmt.Fprintf(w, "Sk{%q , %d , %d}", me.S.Name, me.S.Scope, me.S.Value)
-	} else if me.TlS != nil {
-		fmt.Fprintf(w, "TlS{%q}", me.TlS.Text)
+		fmt.Fprintf(w, "S{%s , %d , %d}", me.S.Name, me.S.Scope, me.S.Value)
+	} else if me.Ts != nil {
+		fmt.Fprintf(w, "Ts{%s}", me.Ts.Text)
 	} else if me.V != nil {
-		fmt.Fprintf(w, "V{%q}", me.V.Name)
+		fmt.Fprintf(w, "V{%s}", me.V.Name)
 	}
 	return buf.String()
 }
@@ -329,7 +343,7 @@ func (me *irMeta) newTRefFromCoreTag(tc *udevps.CoreTagType) *irPsTypeRef {
 	} else if tc.IsConstrainedType() {
 		tref.C = &irPsTypeRefConstrained{Constr: irMConstraints{me.newConstr(tc.Constr)}, Ref: me.newTRefFromCoreTag(tc.Type0)}
 	} else if tc.IsTypeLevelString() {
-		tref.TlS = &irPsTypeRefTlStr{Text: tc.Text}
+		tref.Ts = &irPsTypeRefTlStr{Text: tc.Text}
 	} else {
 		panic(notImplErr("tagged-type", tc.Tag, me.mod.srcFilePath))
 	}

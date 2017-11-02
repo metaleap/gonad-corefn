@@ -410,10 +410,6 @@ func (me *irAst) codeGenTypeDef(w io.Writer, gtd *irGoNamedTypeRef) {
 }
 
 func (me *irAst) codeGenTypeRef(w io.Writer, gtd *irGoNamedTypeRef, indlevel int) {
-	if gtd == nil {
-		fmt.Fprint(w, "interface{/*NIL*/}")
-		return
-	}
 	fmtembeds := "\t%s\n"
 	isfuncwithbodynotjustsig := gtd.Ref.F != nil && gtd.Ref.F.impl != nil
 	if gtd.Ref.Q != nil {
@@ -426,12 +422,7 @@ func (me *irAst) codeGenTypeRef(w io.Writer, gtd *irGoNamedTypeRef, indlevel int
 		me.codeGenTypeRef(w, gtd.Ref.P.Of, -1)
 	} else if gtd.Ref.I != nil {
 		if len(gtd.Ref.I.Embeds) == 0 && len(gtd.Ref.I.Methods) == 0 {
-			if tv := gtd.Ref.typeVar(); tv != "" {
-				fmt.Fprint(w, "𝒈.𝑻/*"+tv+"*/")
-				me.irM.ensureImp("", "github.com/gonadz/-", "").emitted = true
-			} else {
-				fmt.Fprint(w, "interface{}")
-			}
+			fmt.Fprint(w, "interface{}")
 		} else {
 			var tabind string
 			if indlevel > 0 {
@@ -496,6 +487,7 @@ func (me *irAst) codeGenTypeRef(w io.Writer, gtd *irGoNamedTypeRef, indlevel int
 		me.codeGenFuncArgs(w, indlevel, gtd.Ref.F.Args, false, isfuncwithbodynotjustsig)
 		me.codeGenFuncArgs(w, indlevel, gtd.Ref.F.Rets, true, isfuncwithbodynotjustsig)
 	} else {
-		fmt.Fprint(w, "interface{/*EMPTY*/}")
+		fmt.Fprint(w, "𝒈.𝑻/* "+gtd.Ref.origs.String()+" */")
+		me.irM.ensureImp("", "github.com/gonadz/-", "").emitted = true
 	}
 }
