@@ -73,6 +73,20 @@ func (me *irMeta) populateGoTypeDefs() {
 			}
 		}
 	}
+	for i := 0; i < len(me.GoTypeDefs); i++ {
+		if gtd := me.GoTypeDefs[i]; gtd.Ref.Q != nil && strings.HasPrefix(gtd.Ref.Q.QName, "Prim.") {
+			tname := gtd.Ref.Q.QName[5:]
+			switch tname {
+			case "Char", "String", "Int", "Number", "Boolean":
+			case "Array":
+				me._primArrAliases = append(me._primArrAliases, gtd)
+				me.GoTypeDefs.removeAt(i)
+				i--
+			default:
+				panic(notImplErr("prim type", tname, me.mod.srcFilePath))
+			}
+		}
+	}
 }
 
 func (me *irMeta) toIrGoDataDefs(typedatadecls []*irPsTypeDataDef) (gtds irGoNamedTypeRefs) {

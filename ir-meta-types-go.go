@@ -30,6 +30,11 @@ func (me irGoNamedTypeRefs) equiv(cmp irGoNamedTypeRefs) bool {
 	return false
 }
 
+func (me *irGoNamedTypeRefs) removeAt(i int) {
+	self := *me
+	*me = append(self[:i], self[i+1:]...)
+}
+
 type irGoNamedTypeRef struct {
 	NamePs  string            `json:",omitempty"`
 	NameGo  string            `json:",omitempty"`
@@ -331,9 +336,7 @@ func (me *irAst) resolveGoTypeRefFromQName(tref string) (pname string, tname str
 			case "Int":
 				tname = "int"
 			default:
-				tname = "interface{/*Prim." + tname + "*/}"
-				panic("FOO")
-				println(me.mod.srcFilePath + "\t" + tref + "\t" + tname)
+				panic(notImplErr("prim type", tname, me.mod.srcFilePath))
 			}
 		} else {
 			qn, foundimport, isffi := pname, false, strings.HasPrefix(pname, prefixDefaultFfiPkgNs)
