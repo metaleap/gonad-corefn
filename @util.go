@@ -28,7 +28,7 @@ var (
 	strReplFsSlash2Dot  = strings.NewReplacer("\\", ".", "/", ".")
 	strReplUnderscore2ꓸ = strings.NewReplacer("_", "ꓸ")
 
-	strReplSanitizer  = strings.NewReplacer("'", "ˈ", "$", "ᵒ")
+	strReplSanitizer  = strings.NewReplacer("'", "ˈ", "$", "ᵒ", " ", "ߺ", ":", "ꓽ")
 	strReplUnsanitize = strings.NewReplacer("$prime", "'", "$$", "")
 
 	_symcounter = 0
@@ -141,13 +141,12 @@ func sanitizeSymbolForGo(name string, upper bool) string {
 			runes := []rune(name)
 			runes[0] = unicode.ToLower(runes[0])
 			name = string(runes)
-		} else {
-			switch name {
-			case "append", "false", "iota", "nil", "true":
-				return name + "ᣳ"
-			case "break", "case", "chan", "const", "continue", "default", "defer", "else", "fallthrough", "for", "func", "go", "goto", "if", "import", "interface", "map", "package", "range", "return", "select", "struct", "switch", "type", "var":
-				return name + "ᣛ"
-			}
+		}
+		switch name {
+		case "append", "false", "iota", "nil", "true":
+			return name + "ᣳ"
+		case "break", "case", "chan", "const", "continue", "default", "defer", "else", "fallthrough", "for", "func", "go", "goto", "if", "import", "interface", "map", "package", "range", "return", "select", "struct", "switch", "type", "var":
+			return name + "ᣛ"
 		}
 	}
 	return strReplSanitizer.Replace(name)

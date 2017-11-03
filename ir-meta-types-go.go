@@ -277,7 +277,8 @@ type irGoTypeRefStruct struct {
 	PassByPtr bool              `json:",omitempty"`
 	Methods   irGoNamedTypeRefs `json:",omitempty"`
 
-	origInst *irPsTypeClassInst
+	origData0 *irPsTypeDataDef
+	origInst  *irPsTypeClassInst
 }
 
 func (me *irGoTypeRefStruct) equiv(cmp *irGoTypeRefStruct) bool {

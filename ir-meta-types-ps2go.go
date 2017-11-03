@@ -48,47 +48,48 @@ func (me *irMeta) populateGoTypeDefs() {
 func (me *irMeta) toIrGoDataDefs(typedatadecls []*irPsTypeDataDef) (gtds irGoNamedTypeRefs) {
 	for _, td := range typedatadecls {
 		tdict := map[string][]string{}
-		if numctors := len(td.Ctors); numctors == 0 {
-			// panic(notImplErr(me.mod.srcFilePath+": unexpected ctor absence for", td.Name, td))
+		isnewtype, hasctorargs, numctors := false, false, len(td.Ctors)
+		gid := &irGoNamedTypeRef{Export: me.hasExport(td.Name)}
+		if numctors == 0 {
+			gid.Ref.S = &irGoTypeRefStruct{origData0: td}
 		} else {
-			isnewtype, hasctorargs := false, false
-			gid := &irGoNamedTypeRef{Ref: irGoTypeRef{I: &irGoTypeRefInterface{origData: td}}, Export: me.hasExport(td.Name)}
-			gid.setBothNamesFromPsName(td.Name)
-			for _, ctor := range td.Ctors {
-				if numargs := len(ctor.Args); numargs > 0 {
-					if hasctorargs = true; numargs == 1 && numctors == 1 {
-						if tc := ctor.Args[0].Type.Q; tc != nil && tc.QName != (me.mod.qName+"."+td.Name) {
-							isnewtype = true
-						}
-					}
-				}
-			}
-			if isnewtype {
-				gid.Ref.I = nil
-				gid.Ref.setFrom(me.toIrGoTypeRef(tdict, td.Ctors[0].Args[0].Type))
-			} else {
-				cfg := &Proj.BowerJsonFile.Gonad.CodeGen
-				for _, ctor := range td.Ctors {
-					numargs := len(ctor.Args)
-					ctor.ŧ = &irGoNamedTypeRef{Export: me.hasExport(gid.NamePs + "ĸ" + ctor.Name)}
-					ctor.ŧ.Ref.S = &irGoTypeRefStruct{PassByPtr: (hasctorargs && numargs >= cfg.PtrStructMinFieldCount)}
-					ctor.ŧ.setBothNamesFromPsName(strings.NewReplacer("{D}", gid.NamePs, "{C}", ctor.Name).Replace(cfg.Fmt.StructName_DataCtor))
-					ctor.ŧ.NamePs = "ĸ" + ctor.Name
-					for ia, ctorarg := range ctor.Args {
-						field := &irGoNamedTypeRef{}
-						if field.Ref.setFrom(me.toIrGoTypeRef(tdict, ctorarg.Type)); field.Ref.Q != nil && field.Ref.Q.QName == (me.mod.qName+"."+ctor.Name) {
-							//	an inconstructable self-recursive type, aka Data.Void
-							field.turnRefIntoRefPtr()
-						}
-						field.NameGo = strings.NewReplacer("{C}", sanitizeSymbolForGo(ctor.Name, true), "{I}", fmt.Sprint(ia)).Replace(cfg.Fmt.FieldName_DataCtor)
-						field.NamePs = fmt.Sprintf("value%d", ia)
-						ctor.ŧ.Ref.S.Fields = append(ctor.ŧ.Ref.S.Fields, field)
-					}
-					gtds = append(gtds, ctor.ŧ)
-				}
-			}
-			gtds = append(gtds, gid)
+			gid.Ref.I = &irGoTypeRefInterface{origData: td}
 		}
+		gid.setBothNamesFromPsName(td.Name)
+		for _, ctor := range td.Ctors {
+			if numargs := len(ctor.Args); numargs > 0 {
+				if hasctorargs = true; numargs == 1 && numctors == 1 {
+					if tc := ctor.Args[0].Type.Q; tc != nil && tc.QName != (me.mod.qName+"."+td.Name) {
+						isnewtype = true
+					}
+				}
+			}
+		}
+		if isnewtype {
+			gid.Ref.I = nil
+			gid.Ref.setFrom(me.toIrGoTypeRef(tdict, td.Ctors[0].Args[0].Type))
+		} else {
+			cfg := &Proj.BowerJsonFile.Gonad.CodeGen
+			for _, ctor := range td.Ctors {
+				numargs := len(ctor.Args)
+				ctor.ŧ = &irGoNamedTypeRef{Export: me.hasExport(gid.NamePs + "ĸ" + ctor.Name)}
+				ctor.ŧ.Ref.S = &irGoTypeRefStruct{PassByPtr: (hasctorargs && numargs >= cfg.PtrStructMinFieldCount)}
+				ctor.ŧ.setBothNamesFromPsName(strings.NewReplacer("{D}", gid.NamePs, "{C}", ctor.Name).Replace(cfg.Fmt.StructName_DataCtor))
+				ctor.ŧ.NamePs = "ĸ" + ctor.Name
+				for ia, ctorarg := range ctor.Args {
+					field := &irGoNamedTypeRef{}
+					if field.Ref.setFrom(me.toIrGoTypeRef(tdict, ctorarg.Type)); field.Ref.Q != nil && field.Ref.Q.QName == (me.mod.qName+"."+ctor.Name) {
+						//	an inconstructable self-recursive type, aka Data.Void
+						field.turnRefIntoRefPtr()
+					}
+					field.NameGo = strings.NewReplacer("{C}", sanitizeSymbolForGo(ctor.Name, true), "{I}", fmt.Sprint(ia)).Replace(cfg.Fmt.FieldName_DataCtor)
+					field.NamePs = fmt.Sprintf("value%d", ia)
+					ctor.ŧ.Ref.S.Fields = append(ctor.ŧ.Ref.S.Fields, field)
+				}
+				gtds = append(gtds, ctor.ŧ)
+			}
+		}
+		gtds = append(gtds, gid)
 	}
 	return
 }
