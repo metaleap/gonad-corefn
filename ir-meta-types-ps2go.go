@@ -45,6 +45,7 @@ func (me *irMeta) populateGoTypeDefs() {
 	me.GoTypeDefs = append(me.GoTypeDefs, me.toIrGoDataDefs(me.EnvTypeDataDecls)...)
 }
 
+//
 func (me *irMeta) toIrGoDataDefs(typedatadecls []*irPsTypeDataDef) (gtds irGoNamedTypeRefs) {
 	for _, td := range typedatadecls {
 		tdict := map[string][]string{}

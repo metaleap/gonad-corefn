@@ -20,7 +20,7 @@ const (
 )
 
 var (
-	//ꓸ۰٠ᛌᚲ
+	//ꓸ۰٠ᛌᚲߺ
 	strReplˈ2Slash      = strings.NewReplacer("ˈ", "/")
 	strReplDot2ˈ        = strings.NewReplacer(".", "ˈ")
 	strReplDot2ꓸ        = strings.NewReplacer(".", "ꓸ")
@@ -28,7 +28,7 @@ var (
 	strReplFsSlash2Dot  = strings.NewReplacer("\\", ".", "/", ".")
 	strReplUnderscore2ꓸ = strings.NewReplacer("_", "ꓸ")
 
-	strReplSanitizer  = strings.NewReplacer("'", "ˈ", "$", "ᵒ", " ", "ߺ", ":", "ꓽ")
+	strReplSanitizer  = strings.NewReplacer("'", "ˈ", "$", "ᵒ", " ", "ˉ", ":", "ꓽ")
 	strReplUnsanitize = strings.NewReplacer("$prime", "'", "$$", "")
 
 	_symcounter = 0
@@ -143,10 +143,10 @@ func sanitizeSymbolForGo(name string, upper bool) string {
 			name = string(runes)
 		}
 		switch name {
-		case "append", "false", "iota", "nil", "true":
-			return name + "ᣳ"
 		case "break", "case", "chan", "const", "continue", "default", "defer", "else", "fallthrough", "for", "func", "go", "goto", "if", "import", "interface", "map", "package", "range", "return", "select", "struct", "switch", "type", "var":
-			return name + "ᣛ"
+			return fmt.Sprintf(Proj.BowerJsonFile.Gonad.CodeGen.Fmt.Reserved_Keywords, name)
+		case "append", "bool", "byte", "cap", "close", "complex", "copy", "delete", "error", "false", "float32", "float64", "imag", "int", "int16", "int32", "int64", "int8", "iota", "len", "make", "new", "nil", "panic", "print", "println", "real", "rune", "recover", "string", "true", "uint", "uint16", "uint32", "uint64", "uint8", "uintptr":
+			return fmt.Sprintf(Proj.BowerJsonFile.Gonad.CodeGen.Fmt.Reserved_Identifiers, name)
 		}
 	}
 	return strReplSanitizer.Replace(name)

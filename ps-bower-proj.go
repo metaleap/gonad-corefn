@@ -28,10 +28,12 @@ type psBowerFile struct {
 		CodeGen struct {
 			PtrStructMinFieldCount int
 			Fmt                    struct {
-				StructName_InstImpl string
-				StructName_DataCtor string
-				FieldName_DataCtor  string
-				IfaceName_TypeClass string
+				Reserved_Keywords    string
+				Reserved_Identifiers string
+				StructName_InstImpl  string
+				StructName_DataCtor  string
+				FieldName_DataCtor   string
+				IfaceName_TypeClass  string
 			}
 		}
 
@@ -85,6 +87,45 @@ func (me *psBowerProject) moduleByPName(pname string) *modPkg {
 	return nil
 }
 
+func (me *psBowerProject) populateCfgDefaults() {
+	cfg := &Proj.BowerJsonFile.Gonad
+	if cfg.In.CoreFilesDirPath == "" {
+		cfg.In.CoreFilesDirPath = "output"
+	}
+	if cfg.Out.GoNamespaceProj == "" {
+		panic("missing in bower.json: `Gonad{Out{GoNamespaceProj=\"...\"}}` setting (the directory path relative to either your GOPATH or the specified `Gonad{Out{GoDirSrcPath=\"...\"}}`)")
+	}
+	if cfg.Out.GoDirSrcPath == "" {
+		for _, gopath := range udevgo.AllGoPaths() {
+			if cfg.Out.GoDirSrcPath = filepath.Join(gopath, "src"); ufs.DirExists(cfg.Out.GoDirSrcPath) {
+				break
+			}
+		}
+	}
+	if cfg.CodeGen.PtrStructMinFieldCount == 0 {
+		cfg.CodeGen.PtrStructMinFieldCount = 2
+	}
+	fmts := &cfg.CodeGen.Fmt
+	if fmts.StructName_InstImpl == "" {
+		fmts.StructName_InstImpl = "ᛌ%s"
+	}
+	if fmts.IfaceName_TypeClass == "" {
+		fmts.IfaceName_TypeClass = "%sᛌ"
+	}
+	if fmts.StructName_DataCtor == "" {
+		fmts.StructName_DataCtor = "{D}۰{C}"
+	}
+	if fmts.FieldName_DataCtor == "" {
+		fmts.FieldName_DataCtor = "{C}ˈ{I}"
+	}
+	if fmts.Reserved_Keywords == "" {
+		fmts.Reserved_Keywords = "%sʾ"
+	}
+	if fmts.Reserved_Identifiers == "" {
+		fmts.Reserved_Identifiers = "ʾ%s"
+	}
+}
+
 func (me *psBowerProject) loadFromJsonFile() (err error) {
 	if err = udevbower.LoadFromFile(me.BowerJsonFilePath, &me.BowerJsonFile); err == nil {
 		// populate defaults for Gonad sub-fields
@@ -92,35 +133,7 @@ func (me *psBowerProject) loadFromJsonFile() (err error) {
 		if isdep {
 			cfg = &Proj.BowerJsonFile.Gonad
 		} else {
-			if cfg.In.CoreFilesDirPath == "" {
-				cfg.In.CoreFilesDirPath = "output"
-			}
-			if cfg.Out.GoNamespaceProj == "" {
-				panic("missing in bower.json: `Gonad{Out{GoNamespaceProj=\"...\"}}` setting (the directory path relative to either your GOPATH or the specified `Gonad{Out{GoDirSrcPath=\"...\"}}`)")
-			}
-			if cfg.Out.GoDirSrcPath == "" {
-				for _, gopath := range udevgo.AllGoPaths() {
-					if cfg.Out.GoDirSrcPath = filepath.Join(gopath, "src"); ufs.DirExists(cfg.Out.GoDirSrcPath) {
-						break
-					}
-				}
-			}
-			if cfg.CodeGen.PtrStructMinFieldCount == 0 {
-				cfg.CodeGen.PtrStructMinFieldCount = 2
-			}
-			fmts := &cfg.CodeGen.Fmt
-			if fmts.StructName_InstImpl == "" {
-				fmts.StructName_InstImpl = "ᛌ%s"
-			}
-			if fmts.IfaceName_TypeClass == "" {
-				fmts.IfaceName_TypeClass = "%sᛌ"
-			}
-			if fmts.StructName_DataCtor == "" {
-				fmts.StructName_DataCtor = "{D}۰{C}"
-			}
-			if fmts.FieldName_DataCtor == "" {
-				fmts.FieldName_DataCtor = "{C}ˈ{I}"
-			}
+			me.populateCfgDefaults()
 			err = ufs.EnsureDirExists(cfg.Out.GoDirSrcPath)
 			cfg.loadedFromJson = true
 		}
