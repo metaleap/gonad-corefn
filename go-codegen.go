@@ -14,7 +14,6 @@ import (
 
 const (
 	areOverlappingInterfacesSupportedByGo = true // technically would be false, see https://github.com/golang/go/issues/6977 --- in practice keep true until it's an actual issue in generated code
-	dbgEmitEmptyFuncs                     = false
 )
 
 func (_ *irAst) codeGenCommaIf(w io.Writer, i int) {
@@ -115,14 +114,12 @@ func (me *irAst) codeGenAst(w io.Writer, indent int, ast irA) {
 		}
 		fmt.Fprint(w, "\n")
 	case *irABlock:
-		if dbgEmitEmptyFuncs && a != nil && a.parent != nil {
-			me.codeGenAst(w, indent, ªRet(nil))
-		} else if a == nil || len(a.Body) == 0 {
+		if len(a.Body) == 0 {
 			fmt.Fprint(w, "{}")
-			// } else if len(a.Body) == 1 {
-			// 	fmt.Fprint(w, "{ ")
-			// 	me.codeGenAst(w, -1, a.Body[0])
-			// 	fmt.Fprint(w, " }")
+		} else if len(a.Body) == 1 { // one-liner
+			fmt.Fprint(w, "{ ")
+			me.codeGenAst(w, -1, a.Body[0])
+			fmt.Fprint(w, " }")
 		} else {
 			fmt.Fprint(w, "{\n")
 			ind1 := indent + 1
@@ -318,9 +315,6 @@ func (me *irAst) codeGenGroupedVals(w io.Writer, consts bool, asts []irA) {
 // }
 
 func (me *irAst) codeGenFuncArgs(w io.Writer, indent int, methodargs irGoNamedTypeRefs, isretargs bool, withnames bool) {
-	if dbgEmitEmptyFuncs && isretargs && withnames {
-		methodargs[0].NameGo = "ret"
-	}
 	parens := (!isretargs) || len(methodargs) > 1 || (len(methodargs) == 1 && len(methodargs[0].NameGo) > 0)
 	if parens {
 		fmt.Fprint(w, "(")
@@ -385,21 +379,23 @@ func (me *irAst) codeGenPkgDecl(w io.Writer) (err error) {
 }
 
 func (me *irAst) codeGenStructMethods(w io.Writer, tr *irGoNamedTypeRef) {
-	if tr.Ref.S != nil && len(tr.Ref.S.Methods) > 0 {
-		for _, method := range tr.Ref.S.Methods {
+	if tr.Ref.S != nil && len(tr.Methods) > 0 {
+		for _, method := range tr.Methods {
 			mthis := "_"
-			if tr.Ref.S.PassByPtr {
-				fmt.Fprintf(w, "func (%s *%s) %s", mthis, tr.NameGo, method.NameGo)
-			} else {
-				fmt.Fprintf(w, "func (%s %s) %s", mthis, tr.NameGo, method.NameGo)
+			if method.Ref.F.hasthis {
+				mthis = Proj.BowerJsonFile.Gonad.CodeGen.Fmt.Method_ThisName
 			}
+			tthis := tr.NameGo
+			if tr.Ref.S.PassByPtr || method.Ref.F.origCtor != nil {
+				tthis = "*" + tthis
+			}
+			fmt.Fprintf(w, "func (%s %s) %s", mthis, tthis, method.NameGo)
 			me.codeGenFuncArgs(w, -1, method.Ref.F.Args, false, true)
 			me.codeGenFuncArgs(w, -1, method.Ref.F.Rets, true, true)
 			fmt.Fprint(w, " ")
 			me.codeGenAst(w, 0, method.Ref.F.impl)
-			fmt.Fprint(w, "\n")
+			fmt.Fprint(w, "\n\n")
 		}
-		fmt.Fprint(w, "\n")
 	}
 }
 
@@ -421,7 +417,7 @@ func (me *irAst) codeGenTypeRef(w io.Writer, gtd *irGoNamedTypeRef, indlevel int
 		fmt.Fprint(w, "*")
 		me.codeGenTypeRef(w, gtd.Ref.P.Of, -1)
 	} else if gtd.Ref.I != nil {
-		if len(gtd.Ref.I.Embeds) == 0 && len(gtd.Ref.I.Methods) == 0 {
+		if len(gtd.Ref.I.Embeds) == 0 && len(gtd.Methods) == 0 {
 			fmt.Fprint(w, "interface{}")
 		} else {
 			var tabind string
@@ -437,7 +433,7 @@ func (me *irAst) codeGenTypeRef(w io.Writer, gtd *irGoNamedTypeRef, indlevel int
 				}
 			}
 			var buf bytes.Buffer
-			for _, ifmethod := range gtd.Ref.I.Methods {
+			for _, ifmethod := range gtd.Methods {
 				fmt.Fprint(&buf, ifmethod.NameGo)
 				if ifmethod.Ref.F == nil {
 					panic(notImplErr("interface-method (not a func)", ifmethod.NamePs, gtd.NamePs))

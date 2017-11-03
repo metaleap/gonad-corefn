@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"sort"
 
 	"github.com/metaleap/go-util/dev/ps"
 	"github.com/metaleap/go-util/str"
@@ -784,7 +783,6 @@ func (me *irAst) writeAsJsonTo(w io.Writer) error {
 func (me *irAst) writeAsGoTo(writer io.Writer) (err error) {
 	var buf = &bytes.Buffer{}
 
-	sort.Sort(me.irM.GoTypeDefs)
 	for _, gtd := range me.irM.GoTypeDefs {
 		me.codeGenTypeDef(buf, gtd)
 		me.codeGenStructMethods(buf, gtd)

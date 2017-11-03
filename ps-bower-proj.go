@@ -26,14 +26,18 @@ type psBowerFile struct {
 			GoNamespaceDeps string
 		}
 		CodeGen struct {
-			PtrStructMinFieldCount int
-			Fmt                    struct {
+			TypeAliasesForNewtypes         bool
+			TypeAliasesForSingletonStructs bool
+			DataTypeAssertionMethods       bool
+			PtrStructMinFieldCount         int
+			Fmt                            struct {
 				Reserved_Keywords    string
 				Reserved_Identifiers string
 				StructName_InstImpl  string
 				StructName_DataCtor  string
 				FieldName_DataCtor   string
 				IfaceName_TypeClass  string
+				Method_ThisName      string
 			}
 		}
 
@@ -105,6 +109,10 @@ func (me *psBowerProject) populateCfgDefaults() {
 	if cfg.CodeGen.PtrStructMinFieldCount == 0 {
 		cfg.CodeGen.PtrStructMinFieldCount = 2
 	}
+	if cfg.CodeGen.TypeAliasesForSingletonStructs {
+		cfg.CodeGen.DataTypeAssertionMethods = true
+	}
+
 	fmts := &cfg.CodeGen.Fmt
 	if fmts.StructName_InstImpl == "" {
 		fmts.StructName_InstImpl = "ᛌ%s"
@@ -123,6 +131,9 @@ func (me *psBowerProject) populateCfgDefaults() {
 	}
 	if fmts.Reserved_Identifiers == "" {
 		fmts.Reserved_Identifiers = "ʾ%s"
+	}
+	if fmts.Method_ThisName == "" {
+		fmts.Method_ThisName = "me"
 	}
 }
 

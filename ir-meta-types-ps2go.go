@@ -26,9 +26,9 @@ func (me *irMeta) populateGoTypeDefs() {
 		for _, tcm := range tc.Members {
 			method := &irGoNamedTypeRef{Export: true, Ref: irGoTypeRef{F: &irGoTypeRefFunc{origTcMem: tcm}}}
 			method.setBothNamesFromPsName(tcm.Name)
-			method.Ref.F.copyArgTypesOnlyFrom(false, me.toIrGoTypeRef(tdict, tcm.Ref))
+			method.Ref.F.copyArgTypesOnlyFrom(false, nil, me.toIrGoTypeRef(tdict, tcm.Ref))
 			method.Ref.origs = irPsTypeRefs{tcm.Ref}
-			gtd.Ref.I.Methods = append(gtd.Ref.I.Methods, method)
+			gtd.Methods = append(gtd.Methods, method)
 		}
 		me.GoTypeDefs = append(me.GoTypeDefs, gtd)
 	}
@@ -43,34 +43,42 @@ func (me *irMeta) populateGoTypeDefs() {
 
 	//	ALGEBRAIC DATA TYPES
 	me.GoTypeDefs = append(me.GoTypeDefs, me.toIrGoDataDefs(me.EnvTypeDataDecls)...)
+
+	//	POST TYPE-GEN FIXUPS
+	if Proj.BowerJsonFile.Gonad.CodeGen.TypeAliasesForSingletonStructs {
+		for _, gtd := range me.GoTypeDefs {
+			if gtd.Ref.S != nil && len(gtd.Ref.S.Fields) == 1 {
+				gtd.Ref.setFrom(&gtd.Ref.S.Fields[0].Ref)
+			}
+		}
+	}
 }
 
-//
 func (me *irMeta) toIrGoDataDefs(typedatadecls []*irPsTypeDataDef) (gtds irGoNamedTypeRefs) {
 	for _, td := range typedatadecls {
 		tdict := map[string][]string{}
 		isnewtype, hasctorargs, numctors := false, false, len(td.Ctors)
-		gid := &irGoNamedTypeRef{Export: me.hasExport(td.Name)}
+		gid := &irGoNamedTypeRef{Export: me.hasExport(td.Name), Ref: irGoTypeRef{origData: td}}
+		gtds = append(gtds, gid)
 		if numctors == 0 {
-			gid.Ref.S = &irGoTypeRefStruct{origData0: td}
+			gid.Ref.S = &irGoTypeRefStruct{}
 		} else {
-			gid.Ref.I = &irGoTypeRefInterface{origData: td}
+			gid.Ref.I = &irGoTypeRefInterface{}
 		}
 		gid.setBothNamesFromPsName(td.Name)
 		for _, ctor := range td.Ctors {
 			if numargs := len(ctor.Args); numargs > 0 {
 				if hasctorargs = true; numargs == 1 && numctors == 1 {
-					if tc := ctor.Args[0].Type.Q; tc != nil && tc.QName != (me.mod.qName+"."+td.Name) {
+					if tc := ctor.Args[0].Type.Q; tc == nil || tc.QName != (me.mod.qName+"."+td.Name) {
 						isnewtype = true
 					}
 				}
 			}
 		}
-		if isnewtype {
+		if cfg := &Proj.BowerJsonFile.Gonad.CodeGen; cfg.TypeAliasesForNewtypes && isnewtype {
 			gid.Ref.I = nil
 			gid.Ref.setFrom(me.toIrGoTypeRef(tdict, td.Ctors[0].Args[0].Type))
 		} else {
-			cfg := &Proj.BowerJsonFile.Gonad.CodeGen
 			for _, ctor := range td.Ctors {
 				numargs := len(ctor.Args)
 				ctor.ŧ = &irGoNamedTypeRef{Export: me.hasExport(gid.NamePs + "ĸ" + ctor.Name)}
@@ -87,10 +95,32 @@ func (me *irMeta) toIrGoDataDefs(typedatadecls []*irPsTypeDataDef) (gtds irGoNam
 					field.NamePs = fmt.Sprintf("value%d", ia)
 					ctor.ŧ.Ref.S.Fields = append(ctor.ŧ.Ref.S.Fields, field)
 				}
+				if cfg.DataTypeAssertionMethods {
+					ifacemethod := &irGoNamedTypeRef{Export: ctor.ŧ.Export, NameGo: ctor.ŧ.NameGo}
+					ifacemethod.Ref.F = &irGoTypeRefFunc{origCtor: ctor, Rets: irGoNamedTypeRefs{&irGoNamedTypeRef{Ref: irGoTypeRef{
+						P: &irGoTypeRefPtr{Of: &irGoNamedTypeRef{Ref: irGoTypeRef{Q: &irGoTypeRefAlias{QName: ctor.ŧ.NameGo}}}}}}}}
+
+					gid.Methods = append(gid.Methods, ifacemethod)
+				}
 				gtds = append(gtds, ctor.ŧ)
 			}
+			if cfg.DataTypeAssertionMethods {
+				for _, ctor := range td.Ctors {
+					for _, gidm := range gid.Methods {
+						if gidm.Ref.F.origCtor != nil {
+							structmethod := gidm.Ref.F.clone()
+							structmethod.hasthis = (ctor == gidm.Ref.F.origCtor)
+							stmtret := ªRet(ªNil())
+							if structmethod.hasthis {
+								stmtret.RetArg = ªSymGo(Proj.BowerJsonFile.Gonad.CodeGen.Fmt.Method_ThisName)
+							}
+							structmethod.impl = &irABlock{Body: []irA{stmtret}}
+							ctor.ŧ.Methods = append(ctor.ŧ.Methods, &irGoNamedTypeRef{NameGo: gidm.NameGo, Export: gidm.Export, Ref: irGoTypeRef{F: structmethod}})
+						}
+					}
+				}
+			}
 		}
-		gtds = append(gtds, gid)
 	}
 	return
 }

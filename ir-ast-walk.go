@@ -98,11 +98,9 @@ func (me *irAst) walk(on funcIra2Ira) {
 		}
 	}
 	for _, tr := range me.irM.GoTypeDefs {
-		if tr.Ref.S != nil {
-			for _, trm := range tr.Ref.S.Methods {
-				if trm.Ref.F.impl != nil {
-					trm.Ref.F.impl, _ = walk(trm.Ref.F.impl, true, on).(*irABlock)
-				}
+		for _, trm := range tr.Methods {
+			if trm.Ref.F.impl != nil {
+				trm.Ref.F.impl, _ = walk(trm.Ref.F.impl, true, on).(*irABlock)
 			}
 		}
 	}
