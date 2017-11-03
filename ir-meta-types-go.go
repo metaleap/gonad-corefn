@@ -332,6 +332,7 @@ func (me *irAst) resolveGoTypeRefFromQName(tref string) (pname string, tname str
 				tname = "int"
 			default:
 				tname = "interface{/*Prim." + tname + "*/}"
+				panic("FOO")
 				println(me.mod.srcFilePath + "\t" + tref + "\t" + tname)
 			}
 		} else {
