@@ -28,7 +28,7 @@ type psBowerFile struct {
 		CodeGen struct {
 			TypeAliasesForNewtypes         bool
 			TypeAliasesForSingletonStructs bool
-			DataTypeAssertionMethods       bool
+			DataTypeAssertMethods          bool
 			PtrStructMinFieldCount         int
 			Fmt                            struct {
 				Reserved_Keywords    string
@@ -109,8 +109,8 @@ func (me *psBowerProject) populateCfgDefaults() {
 	if cfg.CodeGen.PtrStructMinFieldCount == 0 {
 		cfg.CodeGen.PtrStructMinFieldCount = 2
 	}
-	if cfg.CodeGen.TypeAliasesForSingletonStructs {
-		cfg.CodeGen.DataTypeAssertionMethods = true
+	if cfg.CodeGen.TypeAliasesForSingletonStructs { // if this is wanted, we only allow it with custom type-assert-methods
+		cfg.CodeGen.TypeAliasesForSingletonStructs = cfg.CodeGen.DataTypeAssertMethods
 	}
 
 	fmts := &cfg.CodeGen.Fmt

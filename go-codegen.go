@@ -379,23 +379,21 @@ func (me *irAst) codeGenPkgDecl(w io.Writer) (err error) {
 }
 
 func (me *irAst) codeGenStructMethods(w io.Writer, tr *irGoNamedTypeRef) {
-	if tr.Ref.S != nil && len(tr.Methods) > 0 {
-		for _, method := range tr.Methods {
-			mthis := "_"
-			if method.Ref.F.hasthis {
-				mthis = Proj.BowerJsonFile.Gonad.CodeGen.Fmt.Method_ThisName
-			}
-			tthis := tr.NameGo
-			if tr.Ref.S.PassByPtr || method.Ref.F.origCtor != nil {
-				tthis = "*" + tthis
-			}
-			fmt.Fprintf(w, "func (%s %s) %s", mthis, tthis, method.NameGo)
-			me.codeGenFuncArgs(w, -1, method.Ref.F.Args, false, true)
-			me.codeGenFuncArgs(w, -1, method.Ref.F.Rets, true, true)
-			fmt.Fprint(w, " ")
-			me.codeGenAst(w, 0, method.Ref.F.impl)
-			fmt.Fprint(w, "\n\n")
+	for _, method := range tr.Methods {
+		mthis := "_"
+		if method.Ref.F.hasthis {
+			mthis = Proj.BowerJsonFile.Gonad.CodeGen.Fmt.Method_ThisName
 		}
+		tthis := tr.NameGo
+		if method.Ref.origCtor != nil || (tr.Ref.S != nil && tr.Ref.S.PassByPtr) {
+			tthis = "*" + tthis
+		}
+		fmt.Fprintf(w, "func (%s %s) %s", mthis, tthis, method.NameGo)
+		me.codeGenFuncArgs(w, -1, method.Ref.F.Args, false, true)
+		me.codeGenFuncArgs(w, -1, method.Ref.F.Rets, true, true)
+		fmt.Fprint(w, " ")
+		me.codeGenAst(w, 0, method.Ref.F.impl)
+		fmt.Fprint(w, "\n\n")
 	}
 }
 

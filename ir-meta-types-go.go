@@ -100,12 +100,17 @@ type irGoTypeRef struct {
 	S *irGoTypeRefStruct    `json:",omitempty"`
 
 	origs    irPsTypeRefs
+	origCtor *irPsTypeDataCtor
 	origData *irPsTypeDataDef
 }
 
 func (me *irGoTypeRef) equiv(cmp *irGoTypeRef) bool {
 	return (me == nil && cmp == nil) ||
 		(me != nil && cmp != nil && me.Q.equiv(cmp.Q) && me.I.equiv(cmp.I) && me.F.equiv(cmp.F) && me.S.equiv(cmp.S) && me.A.equiv(cmp.A) && me.P.equiv(cmp.P))
+}
+
+func (me *irGoTypeRef) allNil() bool {
+	return me.A == nil && me.F == nil && me.I == nil && me.P == nil && me.Q == nil && me.S == nil
 }
 
 func (me *irGoTypeRef) setFrom(tref interface{}) {
@@ -175,13 +180,12 @@ type irGoTypeRefFunc struct {
 	Rets irGoNamedTypeRefs `json:",omitempty"`
 
 	origTcMem *irPsTypeClassMember
-	origCtor  *irPsTypeDataCtor
 	hasthis   bool
 	impl      *irABlock
 }
 
 func (me *irGoTypeRefFunc) clone() *irGoTypeRefFunc {
-	clone := &irGoTypeRefFunc{origCtor: me.origCtor, origTcMem: me.origTcMem, impl: me.impl, hasthis: me.hasthis}
+	clone := &irGoTypeRefFunc{origTcMem: me.origTcMem, impl: me.impl, hasthis: me.hasthis}
 	clone.copyArgTypesOnlyFrom(true, me, nil)
 	return clone
 }

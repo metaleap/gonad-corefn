@@ -6,6 +6,8 @@ import (
 )
 
 func (me *irMeta) populateGoTypeDefs() {
+	cfg := Proj.BowerJsonFile.Gonad.CodeGen
+
 	//	TYPE ALIASES / SYNONYMS
 	for _, ts := range me.EnvTypeSyns {
 		if tc := me.tc(ts.Name); tc == nil {
@@ -21,7 +23,7 @@ func (me *irMeta) populateGoTypeDefs() {
 	for _, tc := range me.EnvTypeClasses {
 		tdict, gtd := map[string][]string{}, &irGoNamedTypeRef{Export: me.hasExport(tc.Name)}
 		gtd.setBothNamesFromPsName(tc.Name)
-		gtd.NameGo = fmt.Sprintf(Proj.BowerJsonFile.Gonad.CodeGen.Fmt.IfaceName_TypeClass, gtd.NameGo)
+		gtd.NameGo = fmt.Sprintf(cfg.Fmt.IfaceName_TypeClass, gtd.NameGo)
 		gtd.Ref.I = &irGoTypeRefInterface{origClass: tc}
 		for _, tcm := range tc.Members {
 			method := &irGoNamedTypeRef{Export: true, Ref: irGoTypeRef{F: &irGoTypeRefFunc{origTcMem: tcm}}}
@@ -37,7 +39,7 @@ func (me *irMeta) populateGoTypeDefs() {
 	for _, tci := range me.EnvTypeClassInsts {
 		gtd := &irGoNamedTypeRef{Export: false, Ref: irGoTypeRef{S: &irGoTypeRefStruct{origInst: tci}}}
 		gtd.setBothNamesFromPsName(tci.Name)
-		gtd.NameGo = fmt.Sprintf(Proj.BowerJsonFile.Gonad.CodeGen.Fmt.StructName_InstImpl, gtd.NameGo)
+		gtd.NameGo = fmt.Sprintf(cfg.Fmt.StructName_InstImpl, gtd.NameGo)
 		me.GoTypeDefs = append(me.GoTypeDefs, gtd)
 	}
 
@@ -45,10 +47,29 @@ func (me *irMeta) populateGoTypeDefs() {
 	me.GoTypeDefs = append(me.GoTypeDefs, me.toIrGoDataDefs(me.EnvTypeDataDecls)...)
 
 	//	POST TYPE-GEN FIXUPS
-	if Proj.BowerJsonFile.Gonad.CodeGen.TypeAliasesForSingletonStructs {
+	if cfg.TypeAliasesForSingletonStructs {
+		modpref := me.mod.qName + "."
 		for _, gtd := range me.GoTypeDefs {
 			if gtd.Ref.S != nil && len(gtd.Ref.S.Fields) == 1 {
-				gtd.Ref.setFrom(&gtd.Ref.S.Fields[0].Ref)
+				field, cando := gtd.Ref.S.Fields[0], len(gtd.Methods) == 0 // we need additional precautions below only if struct has methods
+				for tref := &field.Ref; (!cando) && tref != nil; {
+					if isalias := tref.Q != nil; !isalias { // field type isn't alias:
+						tref, cando = nil, tref.A != nil || tref.F != nil // then it's ok if array or func
+					} else if strings.HasPrefix(tref.Q.QName, "Prim.") { // if it's alias, a prim is always ok
+						tref, cando = nil, true
+					} else if strings.HasPrefix(tref.Q.QName, modpref) { // if it's aliasing to package-local type?
+						if gtdr := me.goTypeDefByPsName(tref.Q.QName[len(modpref):], false); gtdr == nil { // but it doesn't exist (not ever likely but hey)
+							tref, cando = nil, false
+						} else { // we capture that package-local type being referenced, to perform the same checks again in the next iteration
+							tref = &gtdr.Ref
+						}
+					} else { // aliasing to external type, more likely than not an interface, we don't ditch the struct then
+						tref, cando = nil, false
+					}
+				}
+				if cando {
+					gtd.Ref.setFrom(&field.Ref)
+				}
 			}
 		}
 	}
@@ -82,7 +103,7 @@ func (me *irMeta) toIrGoDataDefs(typedatadecls []*irPsTypeDataDef) (gtds irGoNam
 			for _, ctor := range td.Ctors {
 				numargs := len(ctor.Args)
 				ctor.ŧ = &irGoNamedTypeRef{Export: me.hasExport(gid.NamePs + "ĸ" + ctor.Name)}
-				ctor.ŧ.Ref.S = &irGoTypeRefStruct{PassByPtr: (hasctorargs && numargs >= cfg.PtrStructMinFieldCount)}
+				ctor.ŧ.Ref.origCtor, ctor.ŧ.Ref.S = ctor, &irGoTypeRefStruct{PassByPtr: (hasctorargs && numargs >= cfg.PtrStructMinFieldCount)}
 				ctor.ŧ.setBothNamesFromPsName(strings.NewReplacer("{D}", gid.NamePs, "{C}", ctor.Name).Replace(cfg.Fmt.StructName_DataCtor))
 				ctor.ŧ.NamePs = "ĸ" + ctor.Name
 				for ia, ctorarg := range ctor.Args {
@@ -95,27 +116,28 @@ func (me *irMeta) toIrGoDataDefs(typedatadecls []*irPsTypeDataDef) (gtds irGoNam
 					field.NamePs = fmt.Sprintf("value%d", ia)
 					ctor.ŧ.Ref.S.Fields = append(ctor.ŧ.Ref.S.Fields, field)
 				}
-				if cfg.DataTypeAssertionMethods {
-					ifacemethod := &irGoNamedTypeRef{Export: ctor.ŧ.Export, NameGo: ctor.ŧ.NameGo}
-					ifacemethod.Ref.F = &irGoTypeRefFunc{origCtor: ctor, Rets: irGoNamedTypeRefs{&irGoNamedTypeRef{Ref: irGoTypeRef{
+				if cfg.DataTypeAssertMethods {
+					ifacemethod := &irGoNamedTypeRef{Export: ctor.ŧ.Export}
+					ifacemethod.setBothNamesFromPsName(ctor.Name)
+					ifacemethod.Ref.origCtor, ifacemethod.Ref.F = ctor, &irGoTypeRefFunc{Rets: irGoNamedTypeRefs{&irGoNamedTypeRef{Ref: irGoTypeRef{
 						P: &irGoTypeRefPtr{Of: &irGoNamedTypeRef{Ref: irGoTypeRef{Q: &irGoTypeRefAlias{QName: ctor.ŧ.NameGo}}}}}}}}
 
 					gid.Methods = append(gid.Methods, ifacemethod)
 				}
 				gtds = append(gtds, ctor.ŧ)
 			}
-			if cfg.DataTypeAssertionMethods {
+			if cfg.DataTypeAssertMethods {
 				for _, ctor := range td.Ctors {
 					for _, gidm := range gid.Methods {
-						if gidm.Ref.F.origCtor != nil {
+						if gidm.Ref.origCtor != nil {
 							structmethod := gidm.Ref.F.clone()
-							structmethod.hasthis = (ctor == gidm.Ref.F.origCtor)
+							structmethod.hasthis = (ctor == gidm.Ref.origCtor)
 							stmtret := ªRet(ªNil())
 							if structmethod.hasthis {
 								stmtret.RetArg = ªSymGo(Proj.BowerJsonFile.Gonad.CodeGen.Fmt.Method_ThisName)
 							}
 							structmethod.impl = &irABlock{Body: []irA{stmtret}}
-							ctor.ŧ.Methods = append(ctor.ŧ.Methods, &irGoNamedTypeRef{NameGo: gidm.NameGo, Export: gidm.Export, Ref: irGoTypeRef{F: structmethod}})
+							ctor.ŧ.Methods = append(ctor.ŧ.Methods, &irGoNamedTypeRef{NameGo: gidm.NameGo, Export: gidm.Export, Ref: irGoTypeRef{origCtor: gidm.Ref.origCtor, F: structmethod}})
 						}
 					}
 				}

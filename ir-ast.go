@@ -785,7 +785,9 @@ func (me *irAst) writeAsGoTo(writer io.Writer) (err error) {
 
 	for _, gtd := range me.irM.GoTypeDefs {
 		me.codeGenTypeDef(buf, gtd)
-		me.codeGenStructMethods(buf, gtd)
+		if gtd.Ref.I == nil { // we emit any type's methods as member funcs, but of course not interface methods, these were already done just above
+			me.codeGenStructMethods(buf, gtd)
+		}
 	}
 
 	toplevelconsts := me.topLevelDefs(func(a irA) bool { ac, _ := a.(*irAConst); return ac != nil })
