@@ -776,12 +776,12 @@ func (me *irAst) typeCtorFunc(nameps string) *irACtor {
 
 func (me *irAst) writeAsJsonTo(w io.Writer) error {
 	jsonenc := json.NewEncoder(w)
-	jsonenc.SetIndent("", "\t")
 	return jsonenc.Encode(me)
 }
 
 func (me *irAst) writeAsGoTo(writer io.Writer) (err error) {
 	var buf = &bytes.Buffer{}
+	buf.Grow(1024 * 24)
 
 	for _, gtd := range me.irM.GoTypeDefs {
 		me.codeGenTypeDef(buf, gtd)

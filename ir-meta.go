@@ -234,6 +234,5 @@ func (me *irMeta) goValDeclByPsName(psname string) *irGoNamedTypeRef {
 
 func (me *irMeta) writeAsJsonTo(w io.Writer) error {
 	jsonenc := json.NewEncoder(w)
-	jsonenc.SetIndent("", "\t")
 	return jsonenc.Encode(me)
 }

@@ -152,15 +152,15 @@ func (me irPsTypeRefs) String() string {
 }
 
 type irPsTypeRef struct {
-	A  *irPsTypeRefAppl
-	C  *irPsTypeRefConstrained
-	E  *irPsTypeRefEmpty
-	F  *irPsTypeRefForall
-	Q  *irPsTypeRefConstruct
-	R  *irPsTypeRefRow
-	S  *irPsTypeRefSkolem
-	Ts *irPsTypeRefTlStr
-	V  *irPsTypeRefVar
+	A  *irPsTypeRefAppl        `json:",omitempty"`
+	C  *irPsTypeRefConstrained `json:",omitempty"`
+	E  *irPsTypeRefEmpty       `json:",omitempty"`
+	F  *irPsTypeRefForall      `json:",omitempty"`
+	Q  *irPsTypeRefConstruct   `json:",omitempty"`
+	R  *irPsTypeRefRow         `json:",omitempty"`
+	S  *irPsTypeRefSkolem      `json:",omitempty"`
+	Ts *irPsTypeRefTlStr       `json:",omitempty"`
+	V  *irPsTypeRefVar         `json:",omitempty"`
 }
 
 func (me *irPsTypeRef) equiv(cmp *irPsTypeRef) bool {
