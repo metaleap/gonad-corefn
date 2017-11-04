@@ -8,7 +8,7 @@ import (
 func (me *irMeta) populateGoTypeDefs() {
 	cfg := &ProjCfg.CodeGen
 
-	//	TYPE ALIASES / SYNONYMS
+	//	TYPE SYNONYMS
 	for _, ts := range me.EnvTypeSyns {
 		if tc := me.tc(ts.Name); tc == nil {
 			gtd, tdict := &irGoNamedTypeRef{Export: me.hasExport(ts.Name)}, map[string][]string{}
@@ -47,23 +47,23 @@ func (me *irMeta) populateGoTypeDefs() {
 	me.GoTypeDefs = append(me.GoTypeDefs, me.toIrGoDataDefs(me.EnvTypeDataDecls)...)
 
 	//	POST TYPE-GEN FIXUPS
-	if cfg.TypeAliasesForSingletonStructs {
+	if cfg.TypeSynsForSingletonStructs {
 		modpref := me.mod.qName + "."
 		for _, gtd := range me.GoTypeDefs {
 			if gtdrefstruct := gtd.Ref.S; gtdrefstruct != nil && len(gtdrefstruct.Fields) == 1 {
 				field, cando := gtdrefstruct.Fields[0], len(gtd.Methods) == 0 // we need additional precautions below only if struct has methods
 				for tref := &field.Ref; (!cando) && tref != nil; {
-					if isalias := tref.Q != nil; !isalias { // field type isn't alias:
+					if issyn := tref.Q != nil; !issyn { // field type isn't synonym:
 						tref, cando = nil, tref.A != nil || tref.F != nil || tref.E != nil // then it's ok if array or func
-					} else if strings.HasPrefix(tref.Q.QName, "Prim.") { // if it's alias, a prim is always ok
+					} else if strings.HasPrefix(tref.Q.QName, "Prim.") { // if it's synonym, a prim is always ok
 						tref, cando = nil, true
-					} else if strings.HasPrefix(tref.Q.QName, modpref) { // if it's aliasing to package-local type?
+					} else if strings.HasPrefix(tref.Q.QName, modpref) { // if it's synonym for package-local type?
 						if gtdr := me.goTypeDefByPsName(tref.Q.QName[len(modpref):], false); gtdr == nil { // but it doesn't exist (not ever likely but hey)
 							tref, cando = nil, false
 						} else { // we capture that package-local type being referenced, to perform the same checks again in the next iteration
 							tref = &gtdr.Ref
 						}
-					} else { // aliasing to external type, more likely than not an interface, we don't ditch the struct then
+					} else { // synonym for package-external type, we don't ditch the struct then because
 						tref, cando = nil, false
 					}
 				}
@@ -110,7 +110,7 @@ func (me *irMeta) toIrGoDataDefs(typedatadecls []*irPsTypeDataDef) (gtds irGoNam
 				}
 			}
 		}
-		if cfg := &ProjCfg.CodeGen; cfg.TypeAliasesForNewtypes && isnewtype {
+		if cfg := &ProjCfg.CodeGen; cfg.TypeSynsForNewtypes && isnewtype {
 			gid.Ref.clear(false)
 			gid.Ref.setFrom(me.toIrGoTypeRef(tdict, td.Ctors[0].Args[0].Type))
 		} else {
@@ -150,9 +150,9 @@ func (me *irMeta) toIrGoDataDefs(typedatadecls []*irPsTypeDataDef) (gtds irGoNam
 					ifacemethod.setBothNamesFromPsName(ctor.Name)
 					ifacemethod.Ref.origCtor, ifacemethod.Ref.F = ctor, &irGoTypeRefFunc{Rets: irGoNamedTypeRefs{&irGoNamedTypeRef{}}}
 					if isdataenum {
-						ifacemethod.Ref.F.Rets[0].Ref.Q = &irGoTypeRefAlias{QName: "Prim.Boolean"}
+						ifacemethod.Ref.F.Rets[0].Ref.Q = &irGoTypeRefSyn{QName: "Prim.Boolean"}
 					} else {
-						ifacemethod.Ref.F.Rets[0].Ref.P = &irGoTypeRefPtr{Of: &irGoNamedTypeRef{Ref: irGoTypeRef{Q: &irGoTypeRefAlias{QName: ctor.ŧ.NameGo}}}}
+						ifacemethod.Ref.F.Rets[0].Ref.P = &irGoTypeRefPtr{Of: &irGoNamedTypeRef{Ref: irGoTypeRef{Q: &irGoTypeRefSyn{QName: ctor.ŧ.NameGo}}}}
 					}
 					gid.Methods = append(gid.Methods, ifacemethod)
 				}
@@ -195,7 +195,7 @@ func (me *irMeta) toIrGoTypeRef(tdict map[string][]string, tref *irPsTypeRef) *i
 	origs := irPsTypeRefs{tref}
 	gtr := &irGoTypeRef{}
 	if tCtor != nil {
-		gtr.Q = &irGoTypeRefAlias{QName: tCtor.QName}
+		gtr.Q = &irGoTypeRefSyn{QName: tCtor.QName}
 	} else if tConstr != nil {
 		gtr = me.toIrGoTypeRef(tdict, tConstr.Ref)
 	} else if tForall != nil {
@@ -220,7 +220,7 @@ func (me *irMeta) toIrGoTypeRef(tdict map[string][]string, tref *irPsTypeRef) *i
 				refarr.Of.Ref.setFrom(me.toIrGoTypeRef(tdict, tAppl.Right))
 				gtr.A = refarr
 			} else { // unary known-type app (like Maybe, List, Array etc)
-				gtr.Q = &irGoTypeRefAlias{QName: leftctor.QName}
+				gtr.Q = &irGoTypeRefSyn{QName: leftctor.QName}
 			}
 		} else if leftappl := tAppl.Left.A; leftappl != nil {
 			if leftappl.Left.Q != nil {
@@ -231,7 +231,7 @@ func (me *irMeta) toIrGoTypeRef(tdict map[string][]string, tref *irPsTypeRef) *i
 					gtr.F.Rets = irGoNamedTypeRefs{&irGoNamedTypeRef{}}
 					gtr.F.Rets[0].Ref.setFrom(me.toIrGoTypeRef(tdict, tAppl.Right))
 				} else { // n>1-ary type app (like Either)
-					gtr.Q = &irGoTypeRefAlias{QName: leftappl.Left.Q.QName}
+					gtr.Q = &irGoTypeRefSyn{QName: leftappl.Left.Q.QName}
 				}
 			} else {
 				if strings.HasPrefix(me.mod.srcFilePath, "bower_components/purescript-prelude") {

@@ -98,7 +98,7 @@ type irGoTypeRef struct {
 	F *irGoTypeRefFunc      `json:",omitempty"`
 	I *irGoTypeRefInterface `json:",omitempty"`
 	P *irGoTypeRefPtr       `json:",omitempty"`
-	Q *irGoTypeRefAlias     `json:",omitempty"`
+	Q *irGoTypeRefSyn       `json:",omitempty"`
 	S *irGoTypeRefStruct    `json:",omitempty"`
 
 	origs    irPsTypeRefs
@@ -142,7 +142,7 @@ func (me *irGoTypeRef) setFrom(tref interface{}) {
 		me.A = tr
 	case *irGoTypeRefPtr:
 		me.P = tr
-	case *irGoTypeRefAlias:
+	case *irGoTypeRefSyn:
 		me.Q = tr
 	case *irGoTypeRefEnum:
 		me.E = tr
@@ -151,11 +151,11 @@ func (me *irGoTypeRef) setFrom(tref interface{}) {
 	}
 }
 
-type irGoTypeRefAlias struct {
+type irGoTypeRefSyn struct {
 	QName string
 }
 
-func (me *irGoTypeRefAlias) equiv(cmp *irGoTypeRefAlias) bool {
+func (me *irGoTypeRefSyn) equiv(cmp *irGoTypeRefSyn) bool {
 	return (me == nil && cmp == nil) || (me != nil && cmp != nil && me.QName == cmp.QName)
 }
 
