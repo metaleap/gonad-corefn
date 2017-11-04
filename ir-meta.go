@@ -25,7 +25,6 @@ type irMeta struct {
 	imports []*modPkg
 
 	mod             *modPkg
-	proj            *psBowerProject
 	isDirty         bool
 	_primArrAliases irGoNamedTypeRefs
 }

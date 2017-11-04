@@ -12,10 +12,10 @@ import (
 
 type psBowerFile struct {
 	udevbower.BowerFile
-	Gonad Cfg // likely empty for most, and is ignored for all, deps. but the Proj will typically contain this in the JSON file to configure Gonad
+	Gonad Cfg // likely empty for most (and ignored for all) deps. BUT the Proj itself will typically contain this in its bower.json file to configure our transpilation
 }
 
-type psBowerProject struct {
+type psPkg struct {
 	BowerJsonFile     psBowerFile
 	BowerJsonFilePath string
 	DepsDirPath       string
@@ -26,43 +26,9 @@ type psBowerProject struct {
 	}
 }
 
-func (me *psBowerProject) ensureOutDirs() (err error) {
-	dirpath := filepath.Join(ProjCfg.Out.GoDirSrcPath, me.GoOut.PkgDirPath)
-	if err = ufs.EnsureDirExists(dirpath); err == nil {
-		for _, depmod := range me.Modules {
-			if err = ufs.EnsureDirExists(filepath.Join(dirpath, depmod.goOutDirPath)); err != nil {
-				break
-			}
-		}
-	}
-	return
-}
-
-func (me *psBowerProject) moduleByQName(qname string) *modPkg {
-	if qname != "" {
-		for _, m := range me.Modules {
-			if m.qName == qname {
-				return m
-			}
-		}
-	}
-	return nil
-}
-
-func (me *psBowerProject) moduleByPName(pname string) *modPkg {
-	if pname != "" {
-		pᛌname := strReplUnderscore2ꓸ.Replace(pname)
-		for _, m := range me.Modules {
-			if m.pName == pᛌname || m.pName == pname {
-				return m
-			}
-		}
-	}
-	return nil
-}
-
-func (me *psBowerProject) loadFromJsonFile() (err error) {
-	if err = udevbower.LoadFromFile(me.BowerJsonFilePath, &me.BowerJsonFile); err == nil {
+func (me *psPkg) loadFromJsonFile() {
+	err := udevbower.LoadFromFile(me.BowerJsonFilePath, &me.BowerJsonFile)
+	if err == nil {
 		isdep := (me != &Proj)
 		if !isdep {
 			ProjCfg = &me.BowerJsonFile.Gonad
@@ -99,12 +65,11 @@ func (me *psBowerProject) loadFromJsonFile() (err error) {
 		}
 	}
 	if err != nil {
-		err = errors.New(me.BowerJsonFilePath + ": " + err.Error())
+		panic(errors.New(me.BowerJsonFilePath + ": " + err.Error()))
 	}
-	return
 }
 
-func (me *psBowerProject) addModPkgFromPsSrcFileIfCoreFiles(relpath string, gopkgdir string) {
+func (me *psPkg) addModPkgFromPsSrcFileIfCoreFiles(relpath string, gopkgdir string) {
 	i, l := strings.LastIndexAny(relpath, "/\\"), len(relpath)-5
 	modinfo := &modPkg{
 		proj: me, srcFilePath: filepath.Join(me.SrcDirPath, relpath),
@@ -134,16 +99,22 @@ func (me *psBowerProject) addModPkgFromPsSrcFileIfCoreFiles(relpath string, gopk
 	}
 }
 
-func (me *psBowerProject) forAll(op func(*sync.WaitGroup, *modPkg)) {
-	var wg sync.WaitGroup
-	for _, modinfo := range me.Modules {
-		wg.Add(1)
-		go op(&wg, modinfo)
+func (me *psPkg) ensureOutDirs() {
+	dirpath := filepath.Join(ProjCfg.Out.GoDirSrcPath, me.GoOut.PkgDirPath)
+	err := ufs.EnsureDirExists(dirpath)
+	if err == nil {
+		for _, depmod := range me.Modules {
+			if err = ufs.EnsureDirExists(filepath.Join(dirpath, depmod.goOutDirPath)); err != nil {
+				break
+			}
+		}
 	}
-	wg.Wait()
+	if err != nil {
+		panic(err)
+	}
 }
 
-func (me *psBowerProject) ensureModPkgIrMetas() {
+func (me *psPkg) ensureModPkgIrMetas() {
 	me.forAll(func(wg *sync.WaitGroup, modinfo *modPkg) {
 		defer wg.Done()
 		var err error
@@ -160,14 +131,46 @@ func (me *psBowerProject) ensureModPkgIrMetas() {
 	})
 }
 
-func (me *psBowerProject) populateModPkgIrMetas() {
+func (me *psPkg) forAll(op func(*sync.WaitGroup, *modPkg)) {
+	var wg sync.WaitGroup
+	for _, modinfo := range me.Modules {
+		wg.Add(1)
+		go op(&wg, modinfo)
+	}
+	wg.Wait()
+}
+
+func (me *psPkg) moduleByQName(qname string) *modPkg {
+	if qname != "" {
+		for _, m := range me.Modules {
+			if m.qName == qname {
+				return m
+			}
+		}
+	}
+	return nil
+}
+
+func (me *psPkg) moduleByPName(pname string) *modPkg {
+	if pname != "" {
+		pᛌname := strReplUnderscore2ꓸ.Replace(pname)
+		for _, m := range me.Modules {
+			if m.pName == pᛌname || m.pName == pname {
+				return m
+			}
+		}
+	}
+	return nil
+}
+
+func (me *psPkg) populateModPkgIrMetas() {
 	me.forAll(func(wg *sync.WaitGroup, modinfo *modPkg) {
 		defer wg.Done()
 		modinfo.populatePkgIrMeta()
 	})
 }
 
-func (me *psBowerProject) prepModPkirAsts() {
+func (me *psPkg) prepModPkgIrAsts() {
 	me.forAll(func(wg *sync.WaitGroup, modinfo *modPkg) {
 		defer wg.Done()
 		if modinfo.reGenIr || Flag.ForceAll {
@@ -176,7 +179,7 @@ func (me *psBowerProject) prepModPkirAsts() {
 	})
 }
 
-func (me *psBowerProject) reGenModPkirAsts() {
+func (me *psPkg) reGenModPkgIrAsts() {
 	me.forAll(func(wg *sync.WaitGroup, modinfo *modPkg) {
 		defer wg.Done()
 		if modinfo.reGenIr || Flag.ForceAll {
@@ -185,7 +188,7 @@ func (me *psBowerProject) reGenModPkirAsts() {
 	})
 }
 
-func (me *psBowerProject) writeOutFiles() {
+func (me *psPkg) writeOutFiles() {
 	me.forAll(func(wg *sync.WaitGroup, m *modPkg) {
 		defer wg.Done()
 		if m.irMeta.isDirty || m.reGenIr || Flag.ForceAll {

@@ -12,10 +12,14 @@ type mainWorker struct {
 	sync.WaitGroup
 }
 
-func (me *mainWorker) forAllDeps(fn func(*psBowerProject)) {
-	for _, d := range Deps {
+func (me *mainWorker) forAllDeps(fn func(*psPkg)) {
+	f := func(dep *psPkg) {
+		defer me.Done()
+		fn(dep)
+	}
+	for _, dep := range Deps {
 		me.Add(1)
-		go fn(d)
+		go f(dep)
 	}
 	me.Wait()
 }
@@ -24,43 +28,11 @@ func (me *mainWorker) checkIfDepDirHasBowerFile(locker sync.Locker, reldirpath s
 	defer me.Done()
 	jsonfilepath := filepath.Join(reldirpath, ".bower.json")
 	if depname := strings.TrimLeft(reldirpath[len(Proj.DepsDirPath):], "\\/"); ufs.FileExists(jsonfilepath) {
-		bproj := &psBowerProject{
+		bproj := &psPkg{
 			DepsDirPath: Proj.DepsDirPath, BowerJsonFilePath: jsonfilepath, SrcDirPath: filepath.Join(reldirpath, "src"),
 		}
 		defer locker.Unlock()
 		locker.Lock()
 		Deps[depname] = bproj
 	}
-}
-
-func (me *mainWorker) loadDepFromBowerFile(dep *psBowerProject) {
-	defer me.Done()
-	if err := dep.loadFromJsonFile(); err != nil {
-		panic(err)
-	}
-}
-
-func (me *mainWorker) loadIrMetas(dep *psBowerProject) {
-	defer me.Done()
-	dep.ensureModPkgIrMetas()
-}
-
-func (me *mainWorker) populateIrMetas(dep *psBowerProject) {
-	defer me.Done()
-	dep.populateModPkgIrMetas()
-}
-
-func (me *mainWorker) prepIrAsts(dep *psBowerProject) {
-	defer me.Done()
-	dep.prepModPkirAsts()
-}
-
-func (me *mainWorker) reGenIrAsts(dep *psBowerProject) {
-	defer me.Done()
-	dep.reGenModPkirAsts()
-}
-
-func (me *mainWorker) writeOutFiles(dep *psBowerProject) {
-	defer me.Done()
-	dep.writeOutFiles()
 }

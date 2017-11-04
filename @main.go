@@ -16,9 +16,9 @@ import (
 )
 
 var (
-	Proj    psBowerProject
+	Proj    psPkg
 	ProjCfg *Cfg // nil UNTIL set once after successful load by Proj --- then it points to Proj.BowerJsonFile.Gonad field
-	Deps    = map[string]*psBowerProject{}
+	Deps    = map[string]*psPkg{}
 	Flag    struct {
 		ForceAll bool
 		NoPrefix bool
@@ -29,6 +29,7 @@ var (
 func main() {
 	debug.SetGCPercent(-1) // turns off GC altogether: we're not a long-running process
 	starttime := time.Now()
+
 	// args match those of purs and/or pulp where there's overlap, other config goes in bower.json's `Gonad` field (see `psBowerFile`)
 	pflag.StringVar(&Proj.SrcDirPath, "src-path", "src", "Project-sources directory path")
 	pflag.StringVar(&Proj.DepsDirPath, "dependency-path", "bower_components", "Dependencies directory path")
@@ -37,46 +38,53 @@ func main() {
 	pflag.BoolVar(&Flag.Comments, "comments", false, "Include comments in the generated code")
 	pflag.BoolVar(&Flag.ForceAll, "force", false, "Force-regenerate all *.go & *.json files, not just the outdated or missing ones")
 	pflag.Parse()
+
 	var err error
 	if !ufs.DirExists(Proj.DepsDirPath) {
 		err = fmt.Errorf("No such `dependency-path` directory: %s", Proj.DepsDirPath)
 	} else if !ufs.DirExists(Proj.SrcDirPath) {
 		err = fmt.Errorf("No such `src-path` directory: %s", Proj.SrcDirPath)
-	} else if err = Proj.loadFromJsonFile(); err == nil { // from now on ProjCfg is non-nil & points to Proj.BowerJsonFile.Gonad field
-		var do mainWorker
+	} else {
 		var mutex sync.Mutex
+		var do mainWorker
+
+		Proj.loadFromJsonFile() // from now on ProjCfg is non-nil & points to Proj.BowerJsonFile.Gonad field
+
+		//	collect & prep all deps
 		ufs.WalkDirsIn(Proj.DepsDirPath, func(reldirpath string) bool {
 			do.Add(1)
 			go do.checkIfDepDirHasBowerFile(&mutex, reldirpath)
 			return true
 		})
 		do.Wait()
-		do.forAllDeps(do.loadDepFromBowerFile)
-		Deps[""] = &Proj // from now on, all Deps and the main Proj are handled in parallel and equivalently
-		confirmNoOutDirConflicts()
-		do.forAllDeps(do.loadIrMetas)
-		for _, dep := range Deps {
-			if err = dep.ensureOutDirs(); err != nil {
-				break
-			}
+		do.forAllDeps((*psPkg).loadFromJsonFile)
+
+		//	ensure out dirs
+		Deps[""] = &Proj           // from now on, all Deps and the main Proj are handled in parallel and equivalently
+		confirmNoOutDirConflicts() // before we create numerous out-dir hierarchies so as to not abort half-way through..
+		for _, dep := range Deps { // not parallel because many sub-path overlaps
+			dep.ensureOutDirs()
+		}
+
+		//	each stage runs for all modpkgs in parallel, but in-between stages we wait so that the next one has all needed inputs
+		do.forAllDeps((*psPkg).ensureModPkgIrMetas)
+		do.forAllDeps((*psPkg).populateModPkgIrMetas)
+		do.forAllDeps((*psPkg).prepModPkgIrAsts)
+		do.forAllDeps((*psPkg).reGenModPkgIrAsts)
+		do.forAllDeps((*psPkg).writeOutFiles)
+		dur := time.Since(starttime)
+
+		//	done, just some misc stuff remains
+		allpkgimppaths := map[string]bool{}
+		numregen, numtotal := countNumOfReGendModules(allpkgimppaths) // do this even when ForceAll to have the map filled for writeTestMainGo
+		if Flag.ForceAll {                                            // if so, numregen right now is a "would be" fictitious count
+			numregen = numtotal
+		}
+		if ProjCfg.Out.MainDepLevel > 0 {
+			err = writeTestMainGo(allpkgimppaths)
 		}
 		if err == nil {
-			do.forAllDeps(do.populateIrMetas)
-			do.forAllDeps(do.prepIrAsts)
-			do.forAllDeps(do.reGenIrAsts)
-			do.forAllDeps(do.writeOutFiles)
-			dur := time.Since(starttime)
-			allpkgimppaths := map[string]bool{}
-			numregen, numtotal := countNumOfReGendModules(allpkgimppaths) // do this even when ForceAll to have the map filled for writeTestMainGo
-			if Flag.ForceAll {
-				numregen = numtotal
-			}
-			if ProjCfg.Out.MainDepLevel > 0 {
-				err = writeTestMainGo(allpkgimppaths)
-			}
-			if err == nil {
-				fmt.Printf("Processing %d modules (re-generating %d) took me %v\n", numtotal, numregen, dur)
-			}
+			fmt.Printf("Processing %d modules (re-generating %d) took me %v\n", numtotal, numregen, dur)
 		}
 	}
 	if err != nil {
@@ -84,15 +92,15 @@ func main() {
 	}
 }
 
-func confirmNoOutDirConflicts() {
-	gooutdirs := map[string]*psBowerProject{}
+func confirmNoOutDirConflicts() { // double-checking stuff that seriously just never ever happens thanks to purs/pulp's own checks? check.
+	gooutdirs := map[string]*psPkg{}
 	for _, dep := range Deps {
 		for _, mod := range dep.Modules {
 			modoutdirpath := filepath.Join(dep.GoOut.PkgDirPath, mod.goOutDirPath)
 			if prev := gooutdirs[modoutdirpath]; prev == nil {
 				gooutdirs[modoutdirpath] = dep
 			} else {
-				panic(fmt.Sprintf("Conflicting Go output packages: both '%s' and '%s' want to write to %s", prev.BowerJsonFile.Name, dep.BowerJsonFile.Name, modoutdirpath))
+				panic(fmt.Sprintf("Conflicting Go output packages: '%s' and '%s' would end up in %s", prev.BowerJsonFile.Name, dep.BowerJsonFile.Name, modoutdirpath))
 			}
 		}
 	}

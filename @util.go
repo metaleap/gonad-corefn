@@ -30,8 +30,6 @@ var (
 
 	strReplSanitizer  = strings.NewReplacer("'", "ˈ", "$", "ᵒ", " ", "ˉ", ":", "ꓽ")
 	strReplUnsanitize = strings.NewReplacer("$prime", "'", "$$", "")
-
-	_symcounter = 0
 )
 
 func init() {

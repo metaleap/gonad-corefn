@@ -26,8 +26,8 @@ type modPkg struct {
 
 	irMeta        *irMeta
 	irAst         *irAst
-	proj          *psBowerProject // parent
-	gopkgfilepath string          // full target file path (not necessarily absolute but starting with the given gopath)
+	proj          *psPkg // parent
+	gopkgfilepath string // full target file path (not necessarily absolute but starting with the given gopath)
 	ext           *udevps.Extern
 	coreimp       *udevps.CoreImp
 	corefn        *udevps.CoreFn
@@ -90,7 +90,7 @@ func (me *modPkg) reGenPkgIrMeta() (err error) {
 					me.coreimp.My.ImpFilePath = me.impFilePath
 					if jsonbytes, err = ioutil.ReadFile(me.cfnFilePath); err == nil {
 						if err = json.Unmarshal(jsonbytes, &me.corefn); err == nil {
-							me.irMeta = &irMeta{isDirty: true, mod: me, proj: me.proj}
+							me.irMeta = &irMeta{isDirty: true, mod: me}
 						}
 					}
 				}
