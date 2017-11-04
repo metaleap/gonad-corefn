@@ -29,6 +29,7 @@ type psBowerFile struct {
 			TypeAliasesForNewtypes         bool
 			TypeAliasesForSingletonStructs bool
 			DataTypeAssertMethods          bool
+			DataAsEnumsWherePossible       bool
 			PtrStructMinFieldCount         int
 			Fmt                            struct {
 				Reserved_Keywords    string

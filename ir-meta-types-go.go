@@ -43,16 +43,12 @@ type irGoNamedTypeRef struct {
 	Methods irGoNamedTypeRefs `json:",omitempty"`
 }
 
-func (me *irGoNamedTypeRef) clearTypeInfo() {
-	me.Ref.Q, me.Ref.I, me.Ref.F, me.Ref.S, me.Ref.A, me.Ref.P = nil, nil, nil, nil, nil, nil
-}
-
 func (me *irGoNamedTypeRef) copyFrom(from *irGoNamedTypeRef, names bool, trefs bool, export bool) {
 	if names {
 		me.NameGo, me.NamePs = from.NameGo, from.NamePs
 	}
 	if trefs {
-		me.Ref.Q, me.Ref.I, me.Ref.F, me.Ref.S, me.Ref.A, me.Ref.P = from.Ref.Q, from.Ref.I, from.Ref.F, from.Ref.S, from.Ref.A, from.Ref.P
+		me.Ref.Q, me.Ref.I, me.Ref.F, me.Ref.S, me.Ref.A, me.Ref.P, me.Ref.E = from.Ref.Q, from.Ref.I, from.Ref.F, from.Ref.S, from.Ref.A, from.Ref.P, from.Ref.E
 	}
 	if export {
 		me.Export = from.Export
@@ -81,7 +77,7 @@ func (me *irGoNamedTypeRef) hasTypeInfoBeyondEmptyIface() (welltyped bool) {
 }
 
 func (me *irGoNamedTypeRef) hasTypeInfo() bool {
-	return me != nil && (me.Ref.Q != nil || me.Ref.A != nil || me.Ref.F != nil || me.Ref.I != nil || me.Ref.P != nil || me.Ref.S != nil)
+	return me != nil && (me.Ref.Q != nil || me.Ref.A != nil || me.Ref.F != nil || me.Ref.I != nil || me.Ref.P != nil || me.Ref.S != nil || me.Ref.E != nil)
 }
 
 func (me *irGoNamedTypeRef) setBothNamesFromPsName(psname string) {
@@ -92,12 +88,13 @@ func (me *irGoNamedTypeRef) setBothNamesFromPsName(psname string) {
 func (me *irGoNamedTypeRef) turnRefIntoRefPtr() {
 	refptr := &irGoTypeRefPtr{Of: &irGoNamedTypeRef{}}
 	refptr.Of.copyTypeInfoFrom(me)
-	me.Ref.Q, me.Ref.A, me.Ref.F, me.Ref.I, me.Ref.P, me.Ref.S = nil, nil, nil, nil, refptr, nil
+	me.Ref.Q, me.Ref.A, me.Ref.F, me.Ref.I, me.Ref.P, me.Ref.S, me.Ref.E = nil, nil, nil, nil, refptr, nil, nil
 }
 
 type irGoTypeRef struct {
 	//	"native" Go type kinds
 	A *irGoTypeRefArray     `json:",omitempty"`
+	E *irGoTypeRefEnum      `json:",omitempty"`
 	F *irGoTypeRefFunc      `json:",omitempty"`
 	I *irGoTypeRefInterface `json:",omitempty"`
 	P *irGoTypeRefPtr       `json:",omitempty"`
@@ -109,17 +106,23 @@ type irGoTypeRef struct {
 	origData *irPsTypeDataDef
 }
 
+func (me *irGoTypeRef) clear(origstoo bool) {
+	if me.Q, me.I, me.F, me.S, me.A, me.P, me.E = nil, nil, nil, nil, nil, nil, nil; origstoo {
+		me.origs, me.origCtor, me.origData = nil, nil, nil
+	}
+}
+
 func (me *irGoTypeRef) equiv(cmp *irGoTypeRef) bool {
 	return (me == nil && cmp == nil) ||
-		(me != nil && cmp != nil && me.Q.equiv(cmp.Q) && me.I.equiv(cmp.I) && me.F.equiv(cmp.F) && me.S.equiv(cmp.S) && me.A.equiv(cmp.A) && me.P.equiv(cmp.P))
+		(me != nil && cmp != nil && me.Q.equiv(cmp.Q) && me.E.equiv(cmp.E) && me.I.equiv(cmp.I) && me.F.equiv(cmp.F) && me.S.equiv(cmp.S) && me.A.equiv(cmp.A) && me.P.equiv(cmp.P))
 }
 
 func (me *irGoTypeRef) allNil() bool {
-	return me.A == nil && me.F == nil && me.I == nil && me.P == nil && me.Q == nil && me.S == nil
+	return me.A == nil && me.F == nil && me.I == nil && me.P == nil && me.Q == nil && me.S == nil && me.E == nil
 }
 
 func (me *irGoTypeRef) setFrom(tref interface{}) {
-	me.A, me.F, me.I, me.P, me.Q, me.S = nil, nil, nil, nil, nil, nil
+	me.clear(true)
 	switch tr := tref.(type) {
 	case *irGoTypeRef:
 		me.Q = tr.Q
@@ -128,7 +131,7 @@ func (me *irGoTypeRef) setFrom(tref interface{}) {
 		me.I = tr.I
 		me.P = tr.P
 		me.S = tr.S
-		me.origs = tr.origs
+		me.origs, me.origCtor, me.origData = tr.origs, tr.origCtor, tr.origData
 	case *irGoTypeRefInterface:
 		me.I = tr
 	case *irGoTypeRefFunc:
@@ -141,6 +144,8 @@ func (me *irGoTypeRef) setFrom(tref interface{}) {
 		me.P = tr
 	case *irGoTypeRefAlias:
 		me.Q = tr
+	case *irGoTypeRefEnum:
+		me.E = tr
 	default:
 		panicWithType("setFrom", tref, "tref")
 	}
@@ -160,6 +165,22 @@ type irGoTypeRefArray struct {
 
 func (me *irGoTypeRefArray) equiv(cmp *irGoTypeRefArray) bool {
 	return (me == nil && cmp == nil) || (me != nil && cmp != nil && me.Of.Ref.equiv(&cmp.Of.Ref))
+}
+
+type irGoTypeRefEnum struct {
+	Names []*irGoNamedTypeRef
+}
+
+func (me *irGoTypeRefEnum) equiv(cmp *irGoTypeRefEnum) bool {
+	if me != nil && cmp != nil && len(me.Names) == len(cmp.Names) {
+		for i, m := range me.Names {
+			if m.NameGo != cmp.Names[i].NameGo {
+				return false
+			}
+		}
+		return true
+	}
+	return me == nil && cmp == nil
 }
 
 type irGoTypeRefPtr struct {

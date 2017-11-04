@@ -301,19 +301,6 @@ func (me *irAst) codeGenGroupedVals(w io.Writer, consts bool, asts []irA) {
 	}
 }
 
-// func (_ *irAst) codeGenEnumConsts(w io.Writer, enumconstnames []string, enumconsttype string) {
-// 	fmt.Fprint(w, "const (\n")
-// 	fmt.Fprintf(w, "\t_ %v= iota\n", strings.Repeat(" ", len(enumconsttype)+len(enumconstnames[0])))
-// 	for i, enumconstname := range enumconstnames {
-// 		fmt.Fprintf(w, "\t%s", enumconstname)
-// 		if i == 0 {
-// 			fmt.Fprintf(w, " %s = iota", enumconsttype)
-// 		}
-// 		fmt.Fprint(w, "\n")
-// 	}
-// 	fmt.Fprint(w, ")\n\n")
-// }
-
 func (me *irAst) codeGenFuncArgs(w io.Writer, indent int, methodargs irGoNamedTypeRefs, isretargs bool, withnames bool) {
 	parens := (!isretargs) || len(methodargs) > 1 || (len(methodargs) == 1 && len(methodargs[0].NameGo) > 0)
 	if parens {
@@ -385,7 +372,7 @@ func (me *irAst) codeGenStructMethods(w io.Writer, tr *irGoNamedTypeRef) {
 			mthis = Proj.BowerJsonFile.Gonad.CodeGen.Fmt.Method_ThisName
 		}
 		tthis := tr.NameGo
-		if method.Ref.origCtor != nil || (tr.Ref.S != nil && tr.Ref.S.PassByPtr) {
+		if tr.Ref.E == nil && (method.Ref.origCtor != nil || (tr.Ref.S != nil && tr.Ref.S.PassByPtr)) {
 			tthis = "*" + tthis
 		}
 		fmt.Fprintf(w, "func (%s %s) %s", mthis, tthis, method.NameGo)
@@ -401,6 +388,18 @@ func (me *irAst) codeGenTypeDef(w io.Writer, gtd *irGoNamedTypeRef) {
 	fmt.Fprintf(w, "type %s ", gtd.NameGo)
 	me.codeGenTypeRef(w, gtd, 0)
 	fmt.Fprint(w, "\n\n")
+	if gtdenum := gtd.Ref.E; gtdenum != nil {
+		fmt.Fprint(w, "const (\n")
+		for i, member := range gtdenum.Names {
+			fmt.Fprintf(w, "\t%s", member.NameGo)
+			if i == 0 {
+				fmt.Fprintf(w, " %s = iota\n", gtd.NameGo)
+			} else {
+				fmt.Fprint(w, "\n")
+			}
+		}
+		fmt.Fprint(w, ")\n\n")
+	}
 }
 
 func (me *irAst) codeGenTypeRef(w io.Writer, gtd *irGoNamedTypeRef, indlevel int) {
@@ -408,6 +407,8 @@ func (me *irAst) codeGenTypeRef(w io.Writer, gtd *irGoNamedTypeRef, indlevel int
 	isfuncwithbodynotjustsig := gtd.Ref.F != nil && gtd.Ref.F.impl != nil
 	if gtd.Ref.Q != nil {
 		me.codeGenAst(w, -1, ªPkgSym(me.resolveGoTypeRefFromQName(gtd.Ref.Q.QName)))
+	} else if gtd.Ref.E != nil {
+		fmt.Fprint(w, "int")
 	} else if gtd.Ref.A != nil {
 		fmt.Fprint(w, "[]")
 		me.codeGenTypeRef(w, gtd.Ref.A.Of, -1)

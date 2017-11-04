@@ -50,11 +50,11 @@ func (me *irMeta) populateGoTypeDefs() {
 	if cfg.TypeAliasesForSingletonStructs {
 		modpref := me.mod.qName + "."
 		for _, gtd := range me.GoTypeDefs {
-			if gtd.Ref.S != nil && len(gtd.Ref.S.Fields) == 1 {
-				field, cando := gtd.Ref.S.Fields[0], len(gtd.Methods) == 0 // we need additional precautions below only if struct has methods
+			if gtdrefstruct := gtd.Ref.S; gtdrefstruct != nil && len(gtdrefstruct.Fields) == 1 {
+				field, cando := gtdrefstruct.Fields[0], len(gtd.Methods) == 0 // we need additional precautions below only if struct has methods
 				for tref := &field.Ref; (!cando) && tref != nil; {
 					if isalias := tref.Q != nil; !isalias { // field type isn't alias:
-						tref, cando = nil, tref.A != nil || tref.F != nil // then it's ok if array or func
+						tref, cando = nil, tref.A != nil || tref.F != nil || tref.E != nil // then it's ok if array or func
 					} else if strings.HasPrefix(tref.Q.QName, "Prim.") { // if it's alias, a prim is always ok
 						tref, cando = nil, true
 					} else if strings.HasPrefix(tref.Q.QName, modpref) { // if it's aliasing to package-local type?
@@ -111,47 +111,71 @@ func (me *irMeta) toIrGoDataDefs(typedatadecls []*irPsTypeDataDef) (gtds irGoNam
 			}
 		}
 		if cfg := &Proj.BowerJsonFile.Gonad.CodeGen; cfg.TypeAliasesForNewtypes && isnewtype {
-			gid.Ref.I = nil
+			gid.Ref.clear(false)
 			gid.Ref.setFrom(me.toIrGoTypeRef(tdict, td.Ctors[0].Args[0].Type))
 		} else {
+			isdataenum := (!hasctorargs) && numctors > 0 && cfg.DataAsEnumsWherePossible
+			if isdataenum {
+				gid.Ref.clear(false)
+				gid.Ref.E = &irGoTypeRefEnum{}
+			}
+			ctorlabel := func(ctor *irPsTypeDataCtor) string {
+				return strings.NewReplacer("{D}", gid.NamePs, "{C}", ctor.Name).Replace(cfg.Fmt.StructName_DataCtor)
+			}
 			for _, ctor := range td.Ctors {
-				numargs := len(ctor.Args)
-				ctor.ŧ = &irGoNamedTypeRef{Export: me.hasExport(gid.NamePs + "ĸ" + ctor.Name)}
-				ctor.ŧ.Ref.origCtor, ctor.ŧ.Ref.S = ctor, &irGoTypeRefStruct{PassByPtr: (hasctorargs && numargs >= cfg.PtrStructMinFieldCount)}
-				ctor.ŧ.setBothNamesFromPsName(strings.NewReplacer("{D}", gid.NamePs, "{C}", ctor.Name).Replace(cfg.Fmt.StructName_DataCtor))
-				ctor.ŧ.NamePs = "ĸ" + ctor.Name
-				for ia, ctorarg := range ctor.Args {
-					field := &irGoNamedTypeRef{}
-					if field.Ref.setFrom(me.toIrGoTypeRef(tdict, ctorarg.Type)); field.Ref.Q != nil && field.Ref.Q.QName == (me.mod.qName+"."+ctor.Name) {
-						//	an inconstructable self-recursive type, aka Data.Void
-						field.turnRefIntoRefPtr()
+				if isdataenum {
+					numem := &irGoNamedTypeRef{Export: ctor.Export}
+					numem.setBothNamesFromPsName(ctorlabel(ctor))
+					gid.Ref.E.Names = append(gid.Ref.E.Names, numem)
+				} else {
+					numargs := len(ctor.Args)
+					ctor.ŧ = &irGoNamedTypeRef{Export: ctor.Export}
+					ctor.ŧ.Ref.origCtor, ctor.ŧ.Ref.S = ctor, &irGoTypeRefStruct{PassByPtr: (hasctorargs && numargs >= cfg.PtrStructMinFieldCount)}
+					ctor.ŧ.setBothNamesFromPsName(ctorlabel(ctor))
+					ctor.ŧ.NamePs = "ĸ" + ctor.Name
+					for ia, ctorarg := range ctor.Args {
+						field := &irGoNamedTypeRef{}
+						if field.Ref.setFrom(me.toIrGoTypeRef(tdict, ctorarg.Type)); field.Ref.Q != nil && field.Ref.Q.QName == (me.mod.qName+"."+ctor.Name) {
+							//	an inconstructable self-recursive type, aka Data.Void
+							field.turnRefIntoRefPtr()
+						}
+						field.NameGo = strings.NewReplacer("{C}", sanitizeSymbolForGo(ctor.Name, true), "{I}", fmt.Sprint(ia)).Replace(cfg.Fmt.FieldName_DataCtor)
+						field.NamePs = fmt.Sprintf("value%d", ia)
+						ctor.ŧ.Ref.S.Fields = append(ctor.ŧ.Ref.S.Fields, field)
 					}
-					field.NameGo = strings.NewReplacer("{C}", sanitizeSymbolForGo(ctor.Name, true), "{I}", fmt.Sprint(ia)).Replace(cfg.Fmt.FieldName_DataCtor)
-					field.NamePs = fmt.Sprintf("value%d", ia)
-					ctor.ŧ.Ref.S.Fields = append(ctor.ŧ.Ref.S.Fields, field)
+					gtds = append(gtds, ctor.ŧ)
 				}
 				if cfg.DataTypeAssertMethods {
-					ifacemethod := &irGoNamedTypeRef{Export: ctor.ŧ.Export}
+					ifacemethod := &irGoNamedTypeRef{Export: ctor.Export}
 					ifacemethod.setBothNamesFromPsName(ctor.Name)
-					ifacemethod.Ref.origCtor, ifacemethod.Ref.F = ctor, &irGoTypeRefFunc{Rets: irGoNamedTypeRefs{&irGoNamedTypeRef{Ref: irGoTypeRef{
-						P: &irGoTypeRefPtr{Of: &irGoNamedTypeRef{Ref: irGoTypeRef{Q: &irGoTypeRefAlias{QName: ctor.ŧ.NameGo}}}}}}}}
-
+					ifacemethod.Ref.origCtor, ifacemethod.Ref.F = ctor, &irGoTypeRefFunc{Rets: irGoNamedTypeRefs{&irGoNamedTypeRef{}}}
+					if isdataenum {
+						ifacemethod.Ref.F.Rets[0].Ref.Q = &irGoTypeRefAlias{QName: "Prim.Boolean"}
+					} else {
+						ifacemethod.Ref.F.Rets[0].Ref.P = &irGoTypeRefPtr{Of: &irGoNamedTypeRef{Ref: irGoTypeRef{Q: &irGoTypeRefAlias{QName: ctor.ŧ.NameGo}}}}
+					}
 					gid.Methods = append(gid.Methods, ifacemethod)
 				}
-				gtds = append(gtds, ctor.ŧ)
 			}
 			if cfg.DataTypeAssertMethods {
 				for _, ctor := range td.Ctors {
-					for _, gidm := range gid.Methods {
-						if gidm.Ref.origCtor != nil {
-							structmethod := gidm.Ref.F.clone()
-							structmethod.hasthis = (ctor == gidm.Ref.origCtor)
-							stmtret := ªRet(ªNil())
-							if structmethod.hasthis {
-								stmtret.RetArg = ªSymGo(Proj.BowerJsonFile.Gonad.CodeGen.Fmt.Method_ThisName)
+					if isdataenum {
+						structmethod := gid.Methods.byPsName(ctor.Name).Ref.F
+						structmethod.hasthis = true
+						stmtret := ªRet(ªEq(ªSymGo(cfg.Fmt.Method_ThisName), ªSymPs(ctorlabel(ctor), ctor.Export)))
+						structmethod.impl = &irABlock{Body: []irA{stmtret}}
+					} else {
+						for _, gidm := range gid.Methods {
+							if gidm.Ref.origCtor != nil {
+								structmethod := gidm.Ref.F.clone()
+								structmethod.hasthis = (ctor == gidm.Ref.origCtor)
+								stmtret := ªRet(ªNil())
+								if structmethod.hasthis {
+									stmtret.RetArg = ªSymGo(cfg.Fmt.Method_ThisName)
+								}
+								structmethod.impl = &irABlock{Body: []irA{stmtret}}
+								ctor.ŧ.Methods = append(ctor.ŧ.Methods, &irGoNamedTypeRef{NameGo: gidm.NameGo, Export: gidm.Export, Ref: irGoTypeRef{origCtor: gidm.Ref.origCtor, F: structmethod}})
 							}
-							structmethod.impl = &irABlock{Body: []irA{stmtret}}
-							ctor.ŧ.Methods = append(ctor.ŧ.Methods, &irGoNamedTypeRef{NameGo: gidm.NameGo, Export: gidm.Export, Ref: irGoTypeRef{origCtor: gidm.Ref.origCtor, F: structmethod}})
 						}
 					}
 				}
@@ -210,7 +234,9 @@ func (me *irMeta) toIrGoTypeRef(tdict map[string][]string, tref *irPsTypeRef) *i
 					gtr.Q = &irGoTypeRefAlias{QName: leftappl.Left.Q.QName}
 				}
 			} else {
-				// println(tref.String())
+				if strings.HasPrefix(me.mod.srcFilePath, "bower_components/purescript-prelude") {
+					println(me.mod.srcFilePath + "\t\t\t" + tref.String())
+				}
 			}
 		}
 	}

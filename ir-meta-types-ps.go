@@ -118,6 +118,7 @@ type irPsTypeDataCtor struct {
 	DataTypeName string                 `json:"tdct,omitempty"`
 	Ctor         *irPsTypeRef           `json:"tdcc,omitempty"`
 	IsNewType    bool                   `json:"tdcnt,omitempty"`
+	Export       bool
 
 	ŧ *irGoNamedTypeRef
 }
@@ -379,7 +380,7 @@ func (me *irMeta) populateEnvTypeDataDecls() {
 				if len(dcdef.Args) != len(dtctor.Types) {
 					panic(notImplErr("ctor-args count mismatch", tdefname+"|"+dtctor.Name, me.mod.impFilePath))
 				}
-				dtc := &irPsTypeDataCtor{Name: dtctor.Name, DataTypeName: dcdef.Type, IsNewType: dcdef.IsDeclˇNewtype(), Ctor: me.newTRefFromCoreTag(dcdef.Ctor)}
+				dtc := &irPsTypeDataCtor{Export: me.hasExport(dt.Name + "ĸ" + dtctor.Name), Name: dtctor.Name, DataTypeName: dcdef.Type, IsNewType: dcdef.IsDeclˇNewtype(), Ctor: me.newTRefFromCoreTag(dcdef.Ctor)}
 				for i, dtcargtype := range dtctor.Types {
 					dtc.Args = append(dtc.Args, &irPsTypeDataCtorArg{Name: dcdef.Args[i], Type: me.newTRefFromCoreTag(dtcargtype)})
 				}
