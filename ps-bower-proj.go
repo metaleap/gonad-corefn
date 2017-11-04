@@ -26,19 +26,19 @@ type psBowerFile struct {
 			GoNamespaceDeps string
 		}
 		CodeGen struct {
-			TypeAliasesForNewtypes         bool
-			TypeAliasesForSingletonStructs bool
-			DataTypeAssertMethods          bool
-			DataAsEnumsWherePossible       bool
-			PtrStructMinFieldCount         int
+			TypeAliasesForNewtypes         bool // generates for every `data` with only one ctor (that is unary & non-recursive) only a type-alias instead of a full interface+struct combo
+			TypeAliasesForSingletonStructs bool // only supported if DataTypeAssertMethods. turns, where safe, a struct declaration with a single field into a type-alias to said field's type
+			DataTypeAssertMethods          bool // if true, all `data` interfaces declare methods implemented by all related ctor structs, to be used instead of Go-native type-assertion case-switches
+			DataAsEnumsWherePossible       bool // turns `data` types with only argument-less ctors from "1 interface + n 0-byte structs" into a single iota enum
+			PtrStructMinFieldCount         int  // default 2. any struct types with fewer fields are passed/returned by value instead of by pointer (0-byte structs always are); exception being all custom DataTypeAssertMethods, if any
 			Fmt                            struct {
-				Reserved_Keywords    string
-				Reserved_Identifiers string
-				StructName_InstImpl  string
-				StructName_DataCtor  string
-				FieldName_DataCtor   string
-				IfaceName_TypeClass  string
-				Method_ThisName      string
+				Reserved_Keywords    string // allows a single %s for the keyword to be escaped
+				Reserved_Identifiers string // allows a single %s for the predefined-identifier to be escaped
+				StructName_InstImpl  string // allows a single %s for the type-class instance name
+				StructName_DataCtor  string // allows {D} and {C} for `data` name and ctor name
+				FieldName_DataCtor   string // allows {I} for the 0-based field (ctor arg) index and {C} for the ctor name
+				IfaceName_TypeClass  string // allows a single %s for the type-class name
+				Method_ThisName      string // must be a valid identifier symbol in Golang, used for the `this` argument (aka receiver) in methods
 			}
 		}
 
@@ -134,7 +134,7 @@ func (me *psBowerProject) populateCfgDefaults() {
 		fmts.Reserved_Identifiers = "ʾ%s"
 	}
 	if fmts.Method_ThisName == "" {
-		fmts.Method_ThisName = "me"
+		fmts.Method_ThisName = "this"
 	}
 }
 

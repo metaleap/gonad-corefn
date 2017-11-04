@@ -114,7 +114,7 @@ func (me *irMeta) toIrGoDataDefs(typedatadecls []*irPsTypeDataDef) (gtds irGoNam
 			gid.Ref.clear(false)
 			gid.Ref.setFrom(me.toIrGoTypeRef(tdict, td.Ctors[0].Args[0].Type))
 		} else {
-			isdataenum := (!hasctorargs) && numctors > 0 && cfg.DataAsEnumsWherePossible
+			isdataenum := cfg.DataAsEnumsWherePossible && (!hasctorargs) && numctors > 0
 			if isdataenum {
 				gid.Ref.clear(false)
 				gid.Ref.E = &irGoTypeRefEnum{}
