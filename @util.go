@@ -133,9 +133,11 @@ func sanitizeSymbolForGo(name string, upper bool) string {
 		return name
 	}
 	if upper {
-		runes := []rune(name)
-		runes[0] = unicode.ToUpper(runes[0])
-		name = string(runes)
+		if !ustr.BeginsUpper(name) {
+			runes := []rune(name)
+			runes[0] = unicode.ToUpper(runes[0])
+			name = string(runes)
+		}
 	} else {
 		if ustr.BeginsUpper(name) {
 			runes := []rune(name)

@@ -352,7 +352,7 @@ func (me *irAst) codeGenModImps(w io.Writer) (err error) {
 					}
 				}
 				if err == nil {
-					fmt.Fprint(w, ")\n\n")
+					err = fmt.Fprint(w, ")\n\n")
 				}
 			}
 		}

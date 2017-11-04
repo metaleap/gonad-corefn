@@ -27,7 +27,7 @@ var (
 )
 
 func main() {
-	debug.SetGCPercent(-1) // we're (hopefully) not a long-running process
+	debug.SetGCPercent(-1) // turns off GC altogether: we're not a long-running process
 	starttime := time.Now()
 	// args match those of purs and/or pulp where there's overlap, other config goes in bower.json's `Gonad` field (see `psBowerFile`)
 	pflag.StringVar(&Proj.SrcDirPath, "src-path", "src", "Project-sources directory path")
