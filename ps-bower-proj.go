@@ -7,43 +7,12 @@ import (
 	"sync"
 
 	"github.com/metaleap/go-util/dev/bower"
-	"github.com/metaleap/go-util/dev/go"
 	"github.com/metaleap/go-util/fs"
 )
 
 type psBowerFile struct {
 	udevbower.BowerFile
-
-	Gonad struct { // all settings in here apply to all Deps equally as they do to the main Proj --- ie. the former get a copy of the latter, ignoring their own Gonad field even if present
-		In struct {
-			CoreFilesDirPath string // dir path containing Some.Module.QName/corefn.json files
-		}
-		Out struct {
-			DumpAst         bool   // dumps an additional gonad.ast.json next to gonad.json
-			MainDepLevel    int    // temporary option
-			GoDirSrcPath    string // defaults to the first `GOPATH` found that has a `src` sub-directory
-			GoNamespaceProj string
-			GoNamespaceDeps string
-		}
-		CodeGen struct {
-			TypeAliasesForNewtypes         bool // generates for every `data` with only one ctor (that is unary & non-recursive) only a type-alias instead of a full interface+struct combo
-			TypeAliasesForSingletonStructs bool // only supported if DataTypeAssertMethods. turns, where safe, a struct declaration with a single field into a type-alias to said field's type
-			DataTypeAssertMethods          bool // if true, all `data` interfaces declare methods implemented by all related ctor structs, to be used instead of Go-native type-assertion case-switches
-			DataAsEnumsWherePossible       bool // turns `data` types with only argument-less ctors from "1 interface + n 0-byte structs" into a single iota enum
-			PtrStructMinFieldCount         int  // default 2. any struct types with fewer fields are passed/returned by value instead of by pointer (0-byte structs always are); exception being all custom DataTypeAssertMethods, if any
-			Fmt                            struct {
-				Reserved_Keywords    string // allows a single %s for the keyword to be escaped
-				Reserved_Identifiers string // allows a single %s for the predefined-identifier to be escaped
-				StructName_InstImpl  string // allows a single %s for the type-class instance name
-				StructName_DataCtor  string // allows {D} and {C} for `data` name and ctor name
-				FieldName_DataCtor   string // allows {I} for the 0-based field (ctor arg) index and {C} for the ctor name
-				IfaceName_TypeClass  string // allows a single %s for the type-class name
-				Method_ThisName      string // must be a valid identifier symbol in Golang, used for the `this` argument (aka receiver) in methods
-			}
-		}
-
-		loadedFromJson bool
-	}
+	Gonad Cfg // likely empty for most, and is ignored for all, deps. but the Proj will typically contain this in the JSON file to configure Gonad
 }
 
 type psBowerProject struct {
@@ -58,7 +27,7 @@ type psBowerProject struct {
 }
 
 func (me *psBowerProject) ensureOutDirs() (err error) {
-	dirpath := filepath.Join(Proj.BowerJsonFile.Gonad.Out.GoDirSrcPath, me.GoOut.PkgDirPath)
+	dirpath := filepath.Join(ProjCfg.Out.GoDirSrcPath, me.GoOut.PkgDirPath)
 	if err = ufs.EnsureDirExists(dirpath); err == nil {
 		for _, depmod := range me.Modules {
 			if err = ufs.EnsureDirExists(filepath.Join(dirpath, depmod.goOutDirPath)); err != nil {
@@ -92,73 +61,25 @@ func (me *psBowerProject) moduleByPName(pname string) *modPkg {
 	return nil
 }
 
-func (me *psBowerProject) populateCfgDefaults() {
-	cfg := &Proj.BowerJsonFile.Gonad
-	if cfg.In.CoreFilesDirPath == "" {
-		cfg.In.CoreFilesDirPath = "output"
-	}
-	if cfg.Out.GoNamespaceProj == "" {
-		panic("missing in bower.json: `Gonad{Out{GoNamespaceProj=\"...\"}}` setting (the directory path relative to either your GOPATH or the specified `Gonad{Out{GoDirSrcPath=\"...\"}}`)")
-	}
-	if cfg.Out.GoDirSrcPath == "" {
-		for _, gopath := range udevgo.AllGoPaths() {
-			if cfg.Out.GoDirSrcPath = filepath.Join(gopath, "src"); ufs.DirExists(cfg.Out.GoDirSrcPath) {
-				break
-			}
-		}
-	}
-	if cfg.CodeGen.PtrStructMinFieldCount == 0 {
-		cfg.CodeGen.PtrStructMinFieldCount = 2
-	}
-	if cfg.CodeGen.TypeAliasesForSingletonStructs { // if this is wanted, we only allow it with custom type-assert-methods
-		cfg.CodeGen.TypeAliasesForSingletonStructs = cfg.CodeGen.DataTypeAssertMethods
-	}
-
-	fmts := &cfg.CodeGen.Fmt
-	if fmts.StructName_InstImpl == "" {
-		fmts.StructName_InstImpl = "ᛌ%s"
-	}
-	if fmts.IfaceName_TypeClass == "" {
-		fmts.IfaceName_TypeClass = "%sᛌ"
-	}
-	if fmts.StructName_DataCtor == "" {
-		fmts.StructName_DataCtor = "{D}۰{C}"
-	}
-	if fmts.FieldName_DataCtor == "" {
-		fmts.FieldName_DataCtor = "{C}ˈ{I}"
-	}
-	if fmts.Reserved_Keywords == "" {
-		fmts.Reserved_Keywords = "%sʾ"
-	}
-	if fmts.Reserved_Identifiers == "" {
-		fmts.Reserved_Identifiers = "ʾ%s"
-	}
-	if fmts.Method_ThisName == "" {
-		fmts.Method_ThisName = "this"
-	}
-}
-
 func (me *psBowerProject) loadFromJsonFile() (err error) {
 	if err = udevbower.LoadFromFile(me.BowerJsonFilePath, &me.BowerJsonFile); err == nil {
-		// populate defaults for Gonad sub-fields
-		cfg, isdep := &me.BowerJsonFile.Gonad, me != &Proj
-		if isdep {
-			cfg = &Proj.BowerJsonFile.Gonad
-		} else {
-			me.populateCfgDefaults()
-			err = ufs.EnsureDirExists(cfg.Out.GoDirSrcPath)
-			cfg.loadedFromJson = true
+		isdep := (me != &Proj)
+		if !isdep {
+			ProjCfg = &me.BowerJsonFile.Gonad
+			ProjCfg.populateDefaultsUponLoaded()
+			ProjCfg.loadedFromJson = true
+			err = ufs.EnsureDirExists(ProjCfg.Out.GoDirSrcPath)
 		}
 		if err == nil {
 			// proceed
-			me.GoOut.PkgDirPath = cfg.Out.GoNamespaceProj
-			if isdep && cfg.Out.GoNamespaceDeps != "" {
-				me.GoOut.PkgDirPath = cfg.Out.GoNamespaceDeps
+			me.GoOut.PkgDirPath = ProjCfg.Out.GoNamespaceProj
+			if isdep && ProjCfg.Out.GoNamespaceDeps != "" {
+				me.GoOut.PkgDirPath = ProjCfg.Out.GoNamespaceDeps
 				if repourl := me.BowerJsonFile.RepositoryURLParsed(); repourl != nil && repourl.Path != "" {
 					if i := strings.LastIndex(repourl.Path, "."); i > 0 {
-						me.GoOut.PkgDirPath = filepath.Join(cfg.Out.GoNamespaceDeps, repourl.Path[:i])
+						me.GoOut.PkgDirPath = filepath.Join(ProjCfg.Out.GoNamespaceDeps, repourl.Path[:i])
 					} else {
-						me.GoOut.PkgDirPath = filepath.Join(cfg.Out.GoNamespaceDeps, repourl.Path)
+						me.GoOut.PkgDirPath = filepath.Join(ProjCfg.Out.GoNamespaceDeps, repourl.Path)
 					}
 				}
 				if me.GoOut.PkgDirPath = strings.Trim(me.GoOut.PkgDirPath, "/\\"); !strings.HasSuffix(me.GoOut.PkgDirPath, me.BowerJsonFile.Name) {
@@ -168,7 +89,7 @@ func (me *psBowerProject) loadFromJsonFile() (err error) {
 					me.GoOut.PkgDirPath = filepath.Join(me.GoOut.PkgDirPath, me.BowerJsonFile.Version)
 				}
 			}
-			gopkgdir := filepath.Join(cfg.Out.GoDirSrcPath, me.GoOut.PkgDirPath)
+			gopkgdir := filepath.Join(ProjCfg.Out.GoDirSrcPath, me.GoOut.PkgDirPath)
 			ufs.WalkAllFiles(me.SrcDirPath, func(relpath string) bool {
 				if relpath = strings.TrimLeft(relpath[len(me.SrcDirPath):], "\\/"); strings.HasSuffix(relpath, ".purs") {
 					me.addModPkgFromPsSrcFileIfCoreFiles(relpath, gopkgdir)
@@ -184,16 +105,16 @@ func (me *psBowerProject) loadFromJsonFile() (err error) {
 }
 
 func (me *psBowerProject) addModPkgFromPsSrcFileIfCoreFiles(relpath string, gopkgdir string) {
-	i, l, opt := strings.LastIndexAny(relpath, "/\\"), len(relpath)-5, Proj.BowerJsonFile.Gonad
+	i, l := strings.LastIndexAny(relpath, "/\\"), len(relpath)-5
 	modinfo := &modPkg{
 		proj: me, srcFilePath: filepath.Join(me.SrcDirPath, relpath),
 		qName: strReplFsSlash2Dot.Replace(relpath[:l]), lName: relpath[i+1 : l],
 	}
-	if modinfo.impFilePath = filepath.Join(opt.In.CoreFilesDirPath, modinfo.qName, "coreimp.json"); ufs.FileExists(modinfo.impFilePath) {
-		if modinfo.cfnFilePath = filepath.Join(opt.In.CoreFilesDirPath, modinfo.qName, "corefn.json"); ufs.FileExists(modinfo.cfnFilePath) {
+	if modinfo.impFilePath = filepath.Join(ProjCfg.In.CoreFilesDirPath, modinfo.qName, "coreimp.json"); ufs.FileExists(modinfo.impFilePath) {
+		if modinfo.cfnFilePath = filepath.Join(ProjCfg.In.CoreFilesDirPath, modinfo.qName, "corefn.json"); ufs.FileExists(modinfo.cfnFilePath) {
 			modinfo.pName = strReplDot2ꓸ.Replace(modinfo.qName)
-			modinfo.extFilePath = filepath.Join(opt.In.CoreFilesDirPath, modinfo.qName, "externs.json")
-			modinfo.irMetaFilePath = filepath.Join(opt.In.CoreFilesDirPath, modinfo.qName, "gonad.json")
+			modinfo.extFilePath = filepath.Join(ProjCfg.In.CoreFilesDirPath, modinfo.qName, "externs.json")
+			modinfo.irMetaFilePath = filepath.Join(ProjCfg.In.CoreFilesDirPath, modinfo.qName, "gonad.json")
 			modinfo.goOutDirPath = relpath[:l]
 			modinfo.goOutFilePath = filepath.Join(modinfo.goOutDirPath, modinfo.qName) + ".go"
 			modinfo.gopkgfilepath = filepath.Join(gopkgdir, modinfo.goOutFilePath)
@@ -272,7 +193,7 @@ func (me *psBowerProject) writeOutFiles() {
 			err := m.writeIrMetaFile()
 			if err == nil && (m.reGenIr || Flag.ForceAll) {
 				//	maybe gonad.ast.json
-				if Proj.BowerJsonFile.Gonad.Out.DumpAst {
+				if ProjCfg.Out.DumpAst {
 					err = m.writeIrAstFile()
 				}
 				//	maybe .go file

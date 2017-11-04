@@ -369,7 +369,7 @@ func (me *irAst) codeGenStructMethods(w io.Writer, tr *irGoNamedTypeRef) {
 	for _, method := range tr.Methods {
 		mthis := "_"
 		if method.Ref.F.hasthis {
-			mthis = Proj.BowerJsonFile.Gonad.CodeGen.Fmt.Method_ThisName
+			mthis = ProjCfg.CodeGen.Fmt.Method_ThisName
 		}
 		tthis := tr.NameGo
 		if tr.Ref.E == nil && (method.Ref.origCtor != nil || (tr.Ref.S != nil && tr.Ref.S.PassByPtr)) {

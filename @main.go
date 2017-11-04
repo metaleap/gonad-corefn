@@ -16,9 +16,10 @@ import (
 )
 
 var (
-	Proj psBowerProject
-	Deps = map[string]*psBowerProject{}
-	Flag struct {
+	Proj    psBowerProject
+	ProjCfg *Cfg // nil UNTIL set once after successful load by Proj --- then it points to Proj.BowerJsonFile.Gonad field
+	Deps    = map[string]*psBowerProject{}
+	Flag    struct {
 		ForceAll bool
 		NoPrefix bool
 		Comments bool
@@ -41,7 +42,7 @@ func main() {
 		err = fmt.Errorf("No such `dependency-path` directory: %s", Proj.DepsDirPath)
 	} else if !ufs.DirExists(Proj.SrcDirPath) {
 		err = fmt.Errorf("No such `src-path` directory: %s", Proj.SrcDirPath)
-	} else if err = Proj.loadFromJsonFile(); err == nil {
+	} else if err = Proj.loadFromJsonFile(); err == nil { // from now on ProjCfg is non-nil & points to Proj.BowerJsonFile.Gonad field
 		var do mainWorker
 		var mutex sync.Mutex
 		ufs.WalkDirsIn(Proj.DepsDirPath, func(reldirpath string) bool {
@@ -70,7 +71,7 @@ func main() {
 			if Flag.ForceAll {
 				numregen = numtotal
 			}
-			if Proj.BowerJsonFile.Gonad.Out.MainDepLevel > 0 {
+			if ProjCfg.Out.MainDepLevel > 0 {
 				err = writeTestMainGo(allpkgimppaths)
 			}
 			if err == nil {
@@ -114,7 +115,7 @@ func writeTestMainGo(allpkgimppaths map[string]bool) (err error) {
 
 	// temporary commandline option to only import a sub-set of packages
 	okpkgs := []string{}
-	for i := 0; i < Proj.BowerJsonFile.Gonad.Out.MainDepLevel; i++ {
+	for i := 0; i < ProjCfg.Out.MainDepLevel; i++ {
 		thisok := []string{}
 		for _, dep := range Deps {
 			for _, mod := range dep.Modules {
@@ -155,7 +156,7 @@ func writeTestMainGo(allpkgimppaths map[string]bool) (err error) {
 		}
 	}
 	if _, err = fmt.Fprintln(w, ")\n\nfunc main() { println(\"Looks like this compiled just fine!\") }"); err == nil {
-		err = ufs.WriteTextFile(filepath.Join(Proj.BowerJsonFile.Gonad.Out.GoDirSrcPath, Proj.GoOut.PkgDirPath, "check-if-all-gonad-generated-packages-compile.go"), w.String())
+		err = ufs.WriteTextFile(filepath.Join(ProjCfg.Out.GoDirSrcPath, Proj.GoOut.PkgDirPath, "check-if-all-gonad-generated-packages-compile.go"), w.String())
 	}
 	return
 }

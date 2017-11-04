@@ -6,7 +6,7 @@ import (
 )
 
 func (me *irMeta) populateGoTypeDefs() {
-	cfg := Proj.BowerJsonFile.Gonad.CodeGen
+	cfg := &ProjCfg.CodeGen
 
 	//	TYPE ALIASES / SYNONYMS
 	for _, ts := range me.EnvTypeSyns {
@@ -110,7 +110,7 @@ func (me *irMeta) toIrGoDataDefs(typedatadecls []*irPsTypeDataDef) (gtds irGoNam
 				}
 			}
 		}
-		if cfg := &Proj.BowerJsonFile.Gonad.CodeGen; cfg.TypeAliasesForNewtypes && isnewtype {
+		if cfg := &ProjCfg.CodeGen; cfg.TypeAliasesForNewtypes && isnewtype {
 			gid.Ref.clear(false)
 			gid.Ref.setFrom(me.toIrGoTypeRef(tdict, td.Ctors[0].Args[0].Type))
 		} else {
@@ -209,7 +209,7 @@ func (me *irMeta) toIrGoTypeRef(tdict map[string][]string, tref *irPsTypeRef) *i
 		if nextrow := me.toIrGoTypeRef(tdict, tRow.Right); nextrow != nil && nextrow.S != nil {
 			refstruc.Fields = append(refstruc.Fields, nextrow.S.Fields...)
 		}
-		refstruc.PassByPtr = len(refstruc.Fields) >= Proj.BowerJsonFile.Gonad.CodeGen.PtrStructMinFieldCount
+		refstruc.PassByPtr = len(refstruc.Fields) >= ProjCfg.CodeGen.PtrStructMinFieldCount
 		gtr.S = refstruc
 	} else if tAppl != nil {
 		if leftctor := tAppl.Left.Q; leftctor != nil {

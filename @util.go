@@ -144,9 +144,9 @@ func sanitizeSymbolForGo(name string, upper bool) string {
 		}
 		switch name {
 		case "break", "case", "chan", "const", "continue", "default", "defer", "else", "fallthrough", "for", "func", "go", "goto", "if", "import", "interface", "map", "package", "range", "return", "select", "struct", "switch", "type", "var":
-			return fmt.Sprintf(Proj.BowerJsonFile.Gonad.CodeGen.Fmt.Reserved_Keywords, name)
+			return fmt.Sprintf(ProjCfg.CodeGen.Fmt.Reserved_Keywords, name)
 		case "append", "bool", "byte", "cap", "close", "complex", "copy", "delete", "error", "false", "float32", "float64", "imag", "int", "int16", "int32", "int64", "int8", "iota", "len", "make", "new", "nil", "panic", "print", "println", "real", "rune", "recover", "string", "true", "uint", "uint16", "uint32", "uint64", "uint8", "uintptr":
-			return fmt.Sprintf(Proj.BowerJsonFile.Gonad.CodeGen.Fmt.Reserved_Identifiers, name)
+			return fmt.Sprintf(ProjCfg.CodeGen.Fmt.Reserved_Identifiers, name)
 		}
 	}
 	return strReplSanitizer.Replace(name)
