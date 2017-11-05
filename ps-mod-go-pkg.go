@@ -1,16 +1,15 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 
+	"github.com/metaleap/go-util"
 	"github.com/metaleap/go-util/dev/ps"
 )
 
-type modPkg struct {
+type modPkg struct { //	A PureScript Module transforms into a Go Package, hence modPkg
 	reGenIr        bool
 	qName          string //	eg	Control.Monad.Eff.Uncurried, My.Main etc
 	lName          string //	eg	Uncurried, Main etc
@@ -26,10 +25,10 @@ type modPkg struct {
 	irMeta        *irMeta
 	irAst         *irAst
 	proj          *psPkg // parent
+	coreExt       *udevps.Extern
+	coreImp       *udevps.CoreImp
+	coreFn        *udevps.CoreFn
 	gopkgfilepath string // full target file path (not necessarily absolute but starting with the given gopath)
-	ext           *udevps.Extern
-	coreimp       *udevps.CoreImp
-	corefn        *udevps.CoreFn
 }
 
 func findModuleByQName(qname string) (modinfo *modPkg) {
@@ -63,17 +62,14 @@ func (me *modPkg) impPath() string {
 }
 
 func (me *modPkg) loadPkgIrMeta() (err error) {
-	var jsonbytes []byte
-	if jsonbytes, err = ioutil.ReadFile(me.irMetaFilePath); err == nil {
-		if err = json.Unmarshal(jsonbytes, &me.irMeta); err == nil {
-			me.irMeta.mod = me
-		}
+	if err = umisc.JsonDecodeFromFile(me.irMetaFilePath, &me.irMeta); err == nil {
+		me.irMeta.mod = me
 	}
 	return
 }
 
 func (me *modPkg) populatePkgIrMeta() {
-	if me.coreimp == nil && me.corefn == nil {
+	if me.coreImp == nil && me.coreFn == nil {
 		me.irMeta.populateFromLoaded()
 	} else {
 		me.irMeta.populateFromCoreImp()
@@ -81,17 +77,12 @@ func (me *modPkg) populatePkgIrMeta() {
 }
 
 func (me *modPkg) reGenPkgIrMeta() (err error) {
-	var jsonbytes []byte
-	if jsonbytes, err = ioutil.ReadFile(me.extFilePath); err == nil {
-		if err = json.Unmarshal(jsonbytes, &me.ext); err == nil {
-			if jsonbytes, err = ioutil.ReadFile(me.impFilePath); err == nil {
-				if err = json.Unmarshal(jsonbytes, &me.coreimp); err == nil {
-					if jsonbytes, err = ioutil.ReadFile(me.cfnFilePath); err == nil {
-						if err = json.Unmarshal(jsonbytes, &me.corefn); err == nil {
-							me.irMeta = &irMeta{isDirty: true, mod: me}
-						}
-					}
-				}
+	if err = umisc.JsonDecodeFromFile(me.extFilePath, &me.coreExt); err == nil {
+		if err = umisc.JsonDecodeFromFile(me.impFilePath, &me.coreImp); err == nil {
+			if err = umisc.JsonDecodeFromFile(me.cfnFilePath, &me.coreFn); err == nil {
+				me.irMeta = &irMeta{isDirty: true, mod: me}
+			} else {
+				me.coreImp = nil
 			}
 		}
 	}

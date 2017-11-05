@@ -24,15 +24,26 @@ func (me *mainWorker) forAllDeps(fn func(*psPkg)) {
 	me.Wait()
 }
 
-func (me *mainWorker) checkIfDepDirHasBowerFile(locker sync.Locker, reldirpath string) {
-	defer me.Done()
-	jsonfilepath := filepath.Join(reldirpath, ".bower.json")
-	if depname := strings.TrimLeft(reldirpath[len(Proj.DepsDirPath):], "\\/"); ufs.FileExists(jsonfilepath) {
-		bproj := &psPkg{
-			DepsDirPath: Proj.DepsDirPath, BowerJsonFilePath: jsonfilepath, SrcDirPath: filepath.Join(reldirpath, "src"),
+func (me *mainWorker) populateDeps() {
+	var mutex sync.Mutex
+
+	checkifdepdirhasbowerjsonfile := func(reldirpath string) {
+		defer me.Done()
+		jsonfilepath := filepath.Join(reldirpath, ".bower.json")
+		if depname := strings.TrimLeft(reldirpath[len(Proj.DepsDirPath):], "\\/"); ufs.FileExists(jsonfilepath) {
+			bproj := &psPkg{
+				DepsDirPath: Proj.DepsDirPath, BowerJsonFilePath: jsonfilepath, SrcDirPath: filepath.Join(reldirpath, "src"),
+			}
+			defer mutex.Unlock()
+			mutex.Lock()
+			Deps[depname] = bproj
 		}
-		defer locker.Unlock()
-		locker.Lock()
-		Deps[depname] = bproj
 	}
+
+	ufs.WalkDirsIn(Proj.DepsDirPath, func(reldirpath string) (keepwalking bool) {
+		me.Add(1)
+		go checkifdepdirhasbowerjsonfile(reldirpath)
+		return true
+	})
+	me.Wait()
 }

@@ -120,9 +120,9 @@ func (me *irMeta) hasExport(name string) bool {
 }
 
 func (me *irMeta) populateFromCoreImp() {
-	me.mod.coreimp.Prep()
+	me.mod.coreImp.Prep()
 	// discover and store exports
-	for _, exp := range me.mod.ext.EfExports {
+	for _, exp := range me.mod.coreExt.EfExports {
 		if len(exp.TypeRef) > 1 {
 			tname := exp.TypeRef[1].(string)
 			me.Exports = append(me.Exports, tname)
@@ -134,7 +134,7 @@ func (me *irMeta) populateFromCoreImp() {
 						}
 					}
 				} else {
-					if td := me.mod.coreimp.DeclEnv.TypeDefs[tname]; td != nil && td.Decl.DataType != nil {
+					if td := me.mod.coreImp.DeclEnv.TypeDefs[tname]; td != nil && td.Decl.DataType != nil {
 						for _, dtctor := range td.Decl.DataType.Ctors {
 							me.Exports = append(me.Exports, tname+"ĸ"+dtctor.Name)
 						}
@@ -151,7 +151,7 @@ func (me *irMeta) populateFromCoreImp() {
 	}
 
 	// discover and store imports
-	for _, imp := range me.mod.corefn.Imports {
+	for _, imp := range me.mod.coreFn.Imports {
 		if impname := strings.Join(imp.ModuleName, "."); impname != "Prim" && impname != "Prelude" && impname != me.mod.qName {
 			me.imports = append(me.imports, findModuleByQName(impname))
 		}

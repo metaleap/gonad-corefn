@@ -7,7 +7,6 @@ import (
 	"runtime/debug"
 	"sort"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/go-forks/pflag"
@@ -45,30 +44,20 @@ func main() {
 	} else if !ufs.DirExists(Proj.SrcDirPath) {
 		err = fmt.Errorf("No such `src-path` directory: %s", Proj.SrcDirPath)
 	} else {
-		var mutex sync.Mutex
 		var do mainWorker
-
 		Proj.loadFromJsonFile() // from now on ProjCfg is non-nil & points to Proj.BowerJsonFile.Gonad field
-
-		//	collect & prep all deps
-		ufs.WalkDirsIn(Proj.DepsDirPath, func(reldirpath string) bool {
-			do.Add(1)
-			go do.checkIfDepDirHasBowerFile(&mutex, reldirpath)
-			return true
-		})
-		do.Wait()
+		do.populateDeps()
 		do.forAllDeps((*psPkg).loadFromJsonFile)
 
-		//	ensure out dirs
 		Deps[""] = &Proj           // from now on, all Deps and the main Proj are handled in parallel and equivalently
-		confirmNoOutDirConflicts() // before we create numerous out-dir hierarchies so as to not abort half-way through..
-		for _, dep := range Deps { // not parallel because many sub-path overlaps
+		confirmNoOutDirConflicts() // before we create numerous out-dir hierarchies, so as to not abort half-way through..
+		for _, dep := range Deps { // not in parallel because many sub-path overlaps
 			dep.ensureOutDirs()
 		}
 
 		//	each stage runs for all modpkgs in parallel, but in-between stages we wait so that the next one has all needed inputs
-		do.forAllDeps((*psPkg).ensureModPkgIrMetas)
-		do.forAllDeps((*psPkg).populateModPkgIrMetas)
+		do.forAllDeps((*psPkg).ensureModPkgIrMetas)   // per mod: if regenerate then load PS core*.json files, else load existing gonad.json
+		do.forAllDeps((*psPkg).populateModPkgIrMetas) // per mod: if regenerate then populate irMeta from loaded PS core*.json files, else minimal preprocessing of loaded gonad.json
 		do.forAllDeps((*psPkg).prepModPkgIrAsts)
 		do.forAllDeps((*psPkg).reGenModPkgIrAsts)
 		do.forAllDeps((*psPkg).writeOutFiles)

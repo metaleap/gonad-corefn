@@ -352,14 +352,14 @@ func (me *irMeta) newTRefFromCoreTag(tc *udevps.CoreTagType) *irPsTypeRef {
 }
 
 func (me *irMeta) populateEnvFuncsAndVals() {
-	me.EnvValDecls = make(irPsNamedTypeRefs, 0, len(me.mod.coreimp.DeclEnv.Functions))
-	for fname, fdef := range me.mod.coreimp.DeclEnv.Functions {
+	me.EnvValDecls = make(irPsNamedTypeRefs, 0, len(me.mod.coreImp.DeclEnv.Functions))
+	for fname, fdef := range me.mod.coreImp.DeclEnv.Functions {
 		me.EnvValDecls = append(me.EnvValDecls, &irPsNamedTypeRef{Name: fname, Ref: me.newTRefFromCoreTag(fdef.Type), orig: fdef})
 	}
 }
 
 func (me *irMeta) populateEnvTypeDataDecls() {
-	for tdefname, tdef := range me.mod.coreimp.DeclEnv.TypeDefs {
+	for tdefname, tdef := range me.mod.coreImp.DeclEnv.TypeDefs {
 		if tdef.Decl.TypeSynonym {
 			//	type-aliases handled separately in populateEnvTypeSyns already, nothing to do here
 		} else if tdef.Decl.ExternData {
@@ -376,7 +376,7 @@ func (me *irMeta) populateEnvTypeDataDecls() {
 				dt.Args = append(dt.Args, irPsTypeDataArg{Name: dtarg.Name, Kind: *dtarg.Kind})
 			}
 			for _, dtctor := range tdef.Decl.DataType.Ctors {
-				dcdef := me.mod.coreimp.DeclEnv.DataCtors[dtctor.Name]
+				dcdef := me.mod.coreImp.DeclEnv.DataCtors[dtctor.Name]
 				if len(dcdef.Args) != len(dtctor.Types) {
 					panic(notImplErr("ctor-args count mismatch", tdefname+"|"+dtctor.Name, me.mod.impFilePath))
 				}
@@ -392,7 +392,7 @@ func (me *irMeta) populateEnvTypeDataDecls() {
 }
 
 func (me *irMeta) populateEnvTypeSyns() {
-	for tsname, tsdef := range me.mod.coreimp.DeclEnv.TypeSyns {
+	for tsname, tsdef := range me.mod.coreImp.DeclEnv.TypeSyns {
 		ts := &irPsNamedTypeRef{Name: tsname}
 		ts.Ref = me.newTRefFromCoreTag(tsdef.Type)
 		me.EnvTypeSyns = append(me.EnvTypeSyns, ts)
@@ -400,7 +400,7 @@ func (me *irMeta) populateEnvTypeSyns() {
 }
 
 func (me *irMeta) populateEnvTypeClasses() {
-	for tcname, tcdef := range me.mod.coreimp.DeclEnv.Classes {
+	for tcname, tcdef := range me.mod.coreImp.DeclEnv.Classes {
 		tc := &irPsTypeClass{Name: tcname}
 		for _, tcarg := range tcdef.Args {
 			tc.Args = append(tc.Args, tcarg.Name)
@@ -419,7 +419,7 @@ func (me *irMeta) populateEnvTypeClasses() {
 		}
 		me.EnvTypeClasses = append(me.EnvTypeClasses, tc)
 	}
-	for _, m := range me.mod.coreimp.DeclEnv.ClassDicts {
+	for _, m := range me.mod.coreImp.DeclEnv.ClassDicts {
 		for tciclass, tcinsts := range m {
 			for tciname, tcidef := range tcinsts {
 				tci := &irPsTypeClassInst{Name: tciname, ClassName: tciclass, Chain: tcidef.Chain, Index: tcidef.Index, Value: tcidef.Value}
