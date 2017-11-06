@@ -80,6 +80,7 @@ func (me *modPkg) reGenPkgIrMeta() (err error) {
 	if err = umisc.JsonDecodeFromFile(me.extFilePath, &me.coreExt); err == nil {
 		if err = umisc.JsonDecodeFromFile(me.impFilePath, &me.coreImp); err == nil {
 			if err = umisc.JsonDecodeFromFile(me.cfnFilePath, &me.coreFn); err == nil {
+
 				me.irMeta = &irMeta{isDirty: true, mod: me}
 			} else {
 				me.coreImp = nil
