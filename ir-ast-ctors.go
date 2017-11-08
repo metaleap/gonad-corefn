@@ -75,16 +75,17 @@ func ªCall(callee irA, callargs ...irA) *irACall {
 	return a
 }
 
-func ªComments(comments ...*udevps.CoreComment) *irAComments {
-	a := &irAComments{}
-	a.Comments = comments
+func ªComments(comments ...udevps.CoreComment) *irAComments {
+	a := &irAComments{irABase: irABase{Comments: comments}}
 	return a
 }
 
 func ªConst(name *irGoNamedTypeRef, val irA) *irAConst {
 	a, v := &irAConst{ConstVal: val}, val.Base()
 	v.parent, a.irGoNamedTypeRef = a, v.irGoNamedTypeRef
-	a.NameGo, a.NamePs = name.NameGo, name.NamePs
+	if name != nil {
+		a.NameGo, a.NamePs = name.NameGo, name.NamePs
+	}
 	return a
 }
 

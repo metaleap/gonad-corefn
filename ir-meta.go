@@ -25,7 +25,6 @@ type irMeta struct {
 	imports []*modPkg
 
 	mod             *modPkg
-	isDirty         bool
 	_primArrAliases irGoNamedTypeRefs
 }
 
@@ -40,7 +39,7 @@ func (me irMPkgRefs) Less(i, j int) bool {
 }
 func (me irMPkgRefs) Swap(i, j int) { me[i], me[j] = me[j], me[i] }
 
-func (me *irMPkgRefs) addIfMissing(lname, imppath, qname string) (pkgref *irMPkgRef, added bool) {
+func (me *irMPkgRefs) addIfMissing(lname, imppath, qname string) (pkgref *irMPkgRef) {
 	if imppath == "" {
 		if strings.HasPrefix(lname, prefixDefaultFfiPkgNs) {
 			imppath = prefixDefaultFfiPkgImpPath + strReplˈ2Slash.Replace(lname[len(prefixDefaultFfiPkgNs):])
@@ -50,7 +49,7 @@ func (me *irMPkgRefs) addIfMissing(lname, imppath, qname string) (pkgref *irMPkg
 		}
 	}
 	if pkgref = me.byImpPath(imppath); pkgref == nil {
-		added, pkgref = true, &irMPkgRef{GoName: lname, ImpPath: imppath, PsModQName: qname}
+		pkgref = &irMPkgRef{GoName: lname, ImpPath: imppath, PsModQName: qname}
 		*me = append(*me, pkgref)
 	}
 	return
@@ -108,10 +107,7 @@ func (me *irMeta) ensureImp(lname, imppath, qname string) *irMPkgRef {
 			lname, qname, imppath = mod.pName, mod.qName, mod.impPath()
 		}
 	}
-	imp, haschanged := me.Imports.addIfMissing(lname, imppath, qname)
-	if haschanged {
-		me.isDirty = true
-	}
+	imp := me.Imports.addIfMissing(lname, imppath, qname)
 	return imp
 }
 
@@ -119,70 +115,84 @@ func (me *irMeta) hasExport(name string) bool {
 	return uslice.StrHas(me.Exports, name)
 }
 
-func (me *irMeta) populateFromCoreImp() {
-	me.mod.coreImp.Prep()
-	// discover and store exports
-	for _, exp := range me.mod.coreExt.EfExports {
-		if len(exp.TypeRef) > 1 {
-			tname := exp.TypeRef[1].(string)
-			me.Exports = append(me.Exports, tname)
-			if len(exp.TypeRef) > 2 {
-				if ctornames, _ := exp.TypeRef[2].([]interface{}); len(ctornames) > 0 {
-					for _, ctorname := range ctornames {
-						if cn, _ := ctorname.(string); cn != "" && !me.hasExport(cn) {
-							me.Exports = append(me.Exports, tname+"ĸ"+cn)
+func (me *irMeta) populateFromCore() {
+	if me.mod.coreImp != nil {
+		me.mod.coreImp.Prep()
+		// discover and store exports
+		if me.mod.coreExt != nil {
+			for _, exp := range me.mod.coreExt.EfExports {
+				if len(exp.TypeRef) > 1 {
+					tname := exp.TypeRef[1].(string)
+					me.Exports = append(me.Exports, tname)
+					if len(exp.TypeRef) > 2 {
+						if ctornames, _ := exp.TypeRef[2].([]interface{}); len(ctornames) > 0 {
+							for _, ctorname := range ctornames {
+								if cn, _ := ctorname.(string); cn != "" && !me.hasExport(cn) {
+									me.Exports = append(me.Exports, tname+"ĸ"+cn)
+								}
+							}
+						} else {
+							if td := me.mod.coreImp.DeclEnv.TypeDefs[tname]; td != nil && td.Decl.DataType != nil {
+								for _, dtctor := range td.Decl.DataType.Ctors {
+									me.Exports = append(me.Exports, tname+"ĸ"+dtctor.Name)
+								}
+							}
 						}
 					}
-				} else {
-					if td := me.mod.coreImp.DeclEnv.TypeDefs[tname]; td != nil && td.Decl.DataType != nil {
-						for _, dtctor := range td.Decl.DataType.Ctors {
-							me.Exports = append(me.Exports, tname+"ĸ"+dtctor.Name)
-						}
-					}
+				} else if len(exp.TypeClassRef) > 1 {
+					me.Exports = append(me.Exports, exp.TypeClassRef[1].(string))
+				} else if len(exp.ValueRef) > 1 {
+					me.Exports = append(me.Exports, exp.ValueRef[1].(map[string]interface{})["Ident"].(string))
+				} else if len(exp.TypeInstanceRef) > 1 {
+					me.Exports = append(me.Exports, exp.TypeInstanceRef[1].(map[string]interface{})["Ident"].(string))
 				}
 			}
-		} else if len(exp.TypeClassRef) > 1 {
-			me.Exports = append(me.Exports, exp.TypeClassRef[1].(string))
-		} else if len(exp.ValueRef) > 1 {
-			me.Exports = append(me.Exports, exp.ValueRef[1].(map[string]interface{})["Ident"].(string))
-		} else if len(exp.TypeInstanceRef) > 1 {
-			me.Exports = append(me.Exports, exp.TypeInstanceRef[1].(map[string]interface{})["Ident"].(string))
+		}
+	} else {
+		me.Exports = me.mod.coreFn.Exports
+	}
+
+	if me.mod.coreImp != nil {
+		// transform 100% complete coreimp structures
+		// into lean, only-what-we-use irMeta structures (still representing PS-not-Go decls)
+		me.populateEnvTypeSyns()
+		me.populateEnvTypeClasses()
+		me.populateEnvTypeDataDecls()
+		me.populateEnvFuncsAndVals()
+
+		// then transform those into Go decls
+		me.populateGoTypeDefs()
+		me.populateGoValDecls()
+	}
+}
+
+func (me *irMeta) populateImportsEarly() {
+	//	from core files?
+	if me.mod.coreFn != nil {
+		// discover and store imports
+		for _, imp := range me.mod.coreFn.Imports {
+			if impname := strings.Join(imp.ModuleName, "."); impname != "Prim" && impname != "Prelude" && impname != me.mod.qName {
+				me.imports = append(me.imports, findModuleByQName(impname))
+			}
+		}
+		for _, impmod := range me.imports {
+			me.Imports = append(me.Imports, impmod.newModImp())
+		}
+	} else { // or restored from gonad.json file?
+		me.imports = nil
+		for _, imp := range me.Imports {
+			if !strings.HasPrefix(imp.ImpPath, prefixDefaultFfiPkgImpPath) {
+				if impmod := findModuleByQName(imp.PsModQName); impmod != nil {
+					me.imports = append(me.imports, impmod)
+				} else if imp.PsModQName != "" {
+					panic(fmt.Errorf("%s: bad import %s", me.mod.srcFilePath, imp.PsModQName))
+				}
+			}
 		}
 	}
-
-	// discover and store imports
-	for _, imp := range me.mod.coreFn.Imports {
-		if impname := strings.Join(imp.ModuleName, "."); impname != "Prim" && impname != "Prelude" && impname != me.mod.qName {
-			me.imports = append(me.imports, findModuleByQName(impname))
-		}
-	}
-	for _, impmod := range me.imports {
-		me.Imports = append(me.Imports, impmod.newModImp())
-	}
-
-	// transform 100% complete coreimp structures
-	// into lean, only-what-we-use irMeta structures (still representing PS-not-Go decls)
-	me.populateEnvTypeSyns()
-	me.populateEnvTypeClasses()
-	me.populateEnvTypeDataDecls()
-	me.populateEnvFuncsAndVals()
-
-	// then transform those into Go decls
-	me.populateGoTypeDefs()
-	me.populateGoValDecls()
 }
 
 func (me *irMeta) populateFromLoaded() {
-	me.imports = nil
-	for _, imp := range me.Imports {
-		if !strings.HasPrefix(imp.ImpPath, prefixDefaultFfiPkgImpPath) {
-			if impmod := findModuleByQName(imp.PsModQName); impmod != nil {
-				me.imports = append(me.imports, impmod)
-			} else if imp.PsModQName != "" {
-				panic(fmt.Errorf("%s: bad import %s", me.mod.srcFilePath, imp.PsModQName))
-			}
-		}
-	}
 	for _, tc := range me.EnvTypeClasses {
 		for _, tcm := range tc.Members {
 			tcm.parent = tc

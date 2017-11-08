@@ -24,7 +24,7 @@ type modPkg struct { //	A PureScript Module transforms into a Go Package, hence 
 
 	irMeta        *irMeta
 	irAst         *irAst
-	proj          *psPkg // parent
+	parentPkg     *psPkg
 	coreExt       *udevps.Extern
 	coreImp       *udevps.CoreImp
 	coreFn        *udevps.CoreFn
@@ -58,40 +58,42 @@ func findModuleByPName(pname string) (modinfo *modPkg) {
 }
 
 func (me *modPkg) impPath() string {
-	return path.Join(me.proj.GoOut.PkgDirPath, me.goOutDirPath)
+	return path.Join(me.parentPkg.GoOut.PkgDirPath, me.goOutDirPath)
 }
 
 func (me *modPkg) loadPkgIrMeta() (err error) {
 	if err = umisc.JsonDecodeFromFile(me.irMetaFilePath, &me.irMeta); err == nil {
 		me.irMeta.mod = me
+		me.irMeta.populateImportsEarly()
 	}
 	return
 }
 
 func (me *modPkg) populatePkgIrMeta() {
-	if me.coreImp == nil && me.coreFn == nil {
+	if me.coreFn == nil {
 		me.irMeta.populateFromLoaded()
 	} else {
-		me.irMeta.populateFromCoreImp()
+		me.irMeta.populateFromCore()
 	}
 }
 
 func (me *modPkg) reGenPkgIrMeta() (err error) {
-	if err = umisc.JsonDecodeFromFile(me.extFilePath, &me.coreExt); err == nil {
-		if err = umisc.JsonDecodeFromFile(me.impFilePath, &me.coreImp); err == nil {
-			if err = umisc.JsonDecodeFromFile(me.cfnFilePath, &me.coreFn); err == nil {
-				me.irMeta = &irMeta{isDirty: true, mod: me}
-			} else {
-				me.coreImp = nil
-			}
-		}
+	// if err = umisc.JsonDecodeFromFile(me.extFilePath, &me.coreExt); err == nil {
+	// 	if err = umisc.JsonDecodeFromFile(me.impFilePath, &me.coreImp); err == nil {
+	if err = umisc.JsonDecodeFromFile(me.cfnFilePath, &me.coreFn); err == nil {
+		me.irMeta = &irMeta{mod: me}
+		me.irMeta.populateImportsEarly()
+		// } else {
+		// 	me.coreImp = nil
 	}
+	// 	}
+	// }
 	return
 }
 
 func (me *modPkg) prepIrAst() {
 	me.irAst = &irAst{mod: me, irM: me.irMeta}
-	me.irAst.prepFromCoreImp()
+	me.irAst.prepFromCore()
 }
 
 func (me *modPkg) reGenPkgIrAst() {
@@ -125,9 +127,7 @@ func (me *modPkg) writeIrMetaFile() (err error) {
 	var f *os.File
 	if f, err = os.Create(me.irMetaFilePath); err == nil {
 		defer f.Close()
-		if err = me.irMeta.writeAsJsonTo(f); err == nil {
-			me.irMeta.isDirty = false
-		}
+		err = me.irMeta.writeAsJsonTo(f)
 	}
 	return
 }

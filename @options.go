@@ -12,11 +12,12 @@ type Cfg struct {
 		CoreFilesDirPath string // dir path containing Some.Module.QName/corefn.json files
 	}
 	Out struct {
-		DumpAst         bool   // dumps an additional gonad.ast.json next to gonad.json
-		MainDepLevel    int    // temporary option
-		GoDirSrcPath    string // defaults to the first `GOPATH` found that has a `src` sub-directory
-		GoNamespaceProj string
-		GoNamespaceDeps string
+		IncludeUnusedDeps bool
+		DumpAst           bool   // dumps an additional gonad.ast.json next to gonad.json
+		MainDepLevel      int    // temporary option
+		GoDirSrcPath      string // defaults to the first `GOPATH` found that has a `src` sub-directory
+		GoNamespaceProj   string
+		GoNamespaceDeps   string
 	}
 	CodeGen struct {
 		TypeSynsForNewtypes         bool // generates for every `data` with only one ctor (that is unary & non-recursive) only a type-synonym instead of a full interface+struct combo

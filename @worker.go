@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -22,6 +23,20 @@ func (me *mainWorker) forAllDeps(fn func(*psPkg)) {
 		go f(dep)
 	}
 	me.Wait()
+}
+
+func (_ *mainWorker) maybeFilterDepsThenEnsureDepOutDirs() {
+	if !ProjCfg.Out.IncludeUnusedDeps {
+		prevcount := len(Deps) - 1 // Deps minus the Proj, just for the below msg
+		Proj.shakeOutStaleDeps()
+		if curcount := len(Deps) - 1; curcount != prevcount {
+			fmt.Printf("(Ignoring %d unused dependency packages out of %d candidates in %s, processing just %d)\n", prevcount-curcount, prevcount, Proj.DepsDirPath, curcount)
+		}
+	}
+	confirmNoOutDirConflicts() // before we create numerous out-dir hierarchies, so as to not abort half-way through..
+	for _, dep := range Deps { // not in parallel because many sub-path overlaps
+		dep.ensureOutDirs()
+	}
 }
 
 func (me *mainWorker) populateDeps() {

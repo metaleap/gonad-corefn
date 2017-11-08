@@ -24,6 +24,8 @@ type psPkg struct {
 	GoOut             struct {
 		PkgDirPath string
 	}
+
+	importedDirectlyOrIndirectlyFromProj bool
 }
 
 func (me *psPkg) loadFromJsonFile() {
@@ -72,7 +74,7 @@ func (me *psPkg) loadFromJsonFile() {
 func (me *psPkg) addModPkgFromPsSrcFileIfCoreFiles(relpath string, gopkgdir string) {
 	i, l := strings.LastIndexAny(relpath, "/\\"), len(relpath)-5
 	modinfo := &modPkg{
-		proj: me, srcFilePath: filepath.Join(me.SrcDirPath, relpath),
+		parentPkg: me, srcFilePath: filepath.Join(me.SrcDirPath, relpath),
 		qName: strReplFsSlash2Dot.Replace(relpath[:l]), lName: relpath[i+1 : l],
 	}
 	if modinfo.impFilePath = filepath.Join(ProjCfg.In.CoreFilesDirPath, modinfo.qName, "coreimp.json"); ufs.FileExists(modinfo.impFilePath) {
@@ -188,10 +190,36 @@ func (me *psPkg) reGenModPkgIrAsts() {
 	})
 }
 
+func (me *psPkg) shakeOutStaleDeps() {
+	if me == &Proj {
+		me.importedDirectlyOrIndirectlyFromProj = true
+	}
+	pkgs2check := map[*psPkg]bool{}
+	for _, pkgmod := range me.Modules {
+		for _, impmod := range pkgmod.irMeta.imports {
+			if impmod.parentPkg != me && !impmod.parentPkg.importedDirectlyOrIndirectlyFromProj {
+				impmod.parentPkg.importedDirectlyOrIndirectlyFromProj = true
+				pkgs2check[impmod.parentPkg] = true
+			}
+		}
+	}
+	for subdep, _ := range pkgs2check {
+		subdep.shakeOutStaleDeps()
+	}
+
+	if me == &Proj {
+		for depname, dep := range Deps {
+			if !dep.importedDirectlyOrIndirectlyFromProj {
+				delete(Deps, depname)
+			}
+		}
+	}
+}
+
 func (me *psPkg) writeOutFiles() {
 	me.forAll(func(wg *sync.WaitGroup, m *modPkg) {
 		defer wg.Done()
-		if m.irMeta.isDirty || m.reGenIr || Flag.ForceAll {
+		if m.reGenIr || Flag.ForceAll {
 			//	maybe gonad.json
 			err := m.writeIrMetaFile()
 			if err == nil && (m.reGenIr || Flag.ForceAll) {

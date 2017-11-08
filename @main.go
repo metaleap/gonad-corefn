@@ -34,7 +34,7 @@ func main() {
 	pflag.StringVar(&Proj.DepsDirPath, "dependency-path", "bower_components", "Dependencies directory path")
 	pflag.StringVar(&Proj.BowerJsonFilePath, "bower-file", "bower.json", "Project file path (further configuration options possible in the Gonad field)")
 	pflag.BoolVar(&Flag.NoPrefix, "no-prefix", false, "Do not include comment header")
-	pflag.BoolVar(&Flag.Comments, "comments", false, "Include comments in the generated code")
+	pflag.BoolVar(&Flag.Comments, "comments", true, "Include comments in the generated code")
 	pflag.BoolVar(&Flag.ForceAll, "force", false, "Force-regenerate all *.go & *.json files, not just the outdated or missing ones")
 	pflag.Parse()
 
@@ -48,16 +48,12 @@ func main() {
 		Proj.loadFromJsonFile() // from now on ProjCfg is non-nil & points to Proj.BowerJsonFile.Gonad field
 		do.populateDeps()
 		do.forAllDeps((*psPkg).loadFromJsonFile)
-
-		Deps[""] = &Proj           // from now on, all Deps and the main Proj are handled in parallel and equivalently
-		confirmNoOutDirConflicts() // before we create numerous out-dir hierarchies, so as to not abort half-way through..
-		for _, dep := range Deps { // not in parallel because many sub-path overlaps
-			dep.ensureOutDirs()
-		}
+		Deps[""] = &Proj // from now on, all Deps and the main Proj are handled in parallel and equivalently
 
 		//	each stage runs for all modpkgs in parallel, but in-between stages we wait so that the next one has all needed inputs
-		do.forAllDeps((*psPkg).ensureModPkgIrMetas)   // per mod: if regenerate then load PS core*.json files, else load existing gonad.json
-		do.forAllDeps((*psPkg).populateModPkgIrMetas) // per mod: if regenerate then populate irMeta from loaded PS core*.json files, else minimal preprocessing of loaded gonad.json
+		do.forAllDeps((*psPkg).ensureModPkgIrMetas) // per mod: if regenerate then load PS core*.json files, else load existing gonad.json
+		do.maybeFilterDepsThenEnsureDepOutDirs()
+		do.forAllDeps((*psPkg).populateModPkgIrMetas) // per mod: if regenerate then populate irMeta anew from loaded PS core*.json files, else minimal preprocessing of restored/deserialized irMeta from gonad.json
 		do.forAllDeps((*psPkg).prepModPkgIrAsts)
 		do.forAllDeps((*psPkg).reGenModPkgIrAsts)
 		do.forAllDeps((*psPkg).writeOutFiles)

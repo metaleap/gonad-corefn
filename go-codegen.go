@@ -8,12 +8,11 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/metaleap/go-util/dev/ps"
 	"github.com/metaleap/go-util/str"
 )
 
 const (
-	areOverlappingInterfacesSupportedByGo = true // technically would be false, see https://github.com/golang/go/issues/6977 --- in practice keep true until it's an actual issue in generated code
+	areOverlappingInterfacesSupportedByGo = true // technically would be false, see https://github.com/golang/go/issues/6977 --- in practice keep true until it becomes an actual issue in generated code
 )
 
 func (_ *irAst) codeGenCommaIf(w io.Writer, i int) {
@@ -22,14 +21,18 @@ func (_ *irAst) codeGenCommaIf(w io.Writer, i int) {
 	}
 }
 
-func (_ *irAst) codeGenComments(w io.Writer, singlelineprefix string, comments ...*udevps.CoreComment) {
-	for _, c := range comments {
+func (_ *irAst) codeGenComments(w io.Writer, singlelineprefix string, withcomments *irABase) (err error) {
+	for _, c := range withcomments.Comments {
 		if c.BlockComment != "" {
-			fmt.Fprintf(w, "/*%s*/", c.BlockComment)
+			_, err = fmt.Fprintf(w, "/*%s*/", c.BlockComment)
 		} else if c.LineComment != "" {
-			fmt.Fprintf(w, "%s//%s\n", singlelineprefix, c.LineComment)
+			_, err = fmt.Fprintf(w, "%s//%s\n", singlelineprefix, c.LineComment)
+		}
+		if err != nil {
+			break
 		}
 	}
+	return
 }
 
 func (me *irAst) codeGenAst(w io.Writer, indent int, ast irA) {
@@ -153,7 +156,7 @@ func (me *irAst) codeGenAst(w io.Writer, indent int, ast irA) {
 		fmt.Fprint(w, " ")
 		me.codeGenAst(w, indent, a.FuncImpl)
 	case *irAComments:
-		me.codeGenComments(w, tabs, a.Comments...)
+		me.codeGenComments(w, tabs, &a.irABase)
 	case *irARet:
 		if a.RetArg == nil {
 			fmt.Fprintf(w, "%sreturn", tabs)

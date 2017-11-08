@@ -49,8 +49,8 @@ type irA interface {
 }
 
 type irABase struct {
-	irGoNamedTypeRef                       // don't use all of this, but exprs with names and/or types do as needed
-	Comments         []*udevps.CoreComment `json:",omitempty"`
+	irGoNamedTypeRef                      // don't use all of this, but exprs with names and/or types do as needed
+	Comments         []udevps.CoreComment `json:",omitempty"`
 	parent           irA
 	root             *irAst // usually nil but set in top-level irABlock. for the rare occasions a irA impl needs this, it uses Ast() which traverses parents to the root then stores in ast --- rather than passing the root to all irA constructors etc
 }
@@ -595,7 +595,7 @@ func (me *irALitObj) Equiv(cmp irA) bool {
 func (me *irALitObj) fieldsNamed() (named bool) {
 	for i, f := range me.ObjFields {
 		if n := f.hasName(); i > 0 && n != named {
-			panic(notImplErr("mix of named and unnamed fields", me.NamePs, me.root.mod.srcFilePath))
+			panic(notImplErr("mix of named and unnamed fields", me.NamePs, me.Ast().mod.srcFilePath))
 		} else {
 			named = n
 		}
@@ -801,9 +801,19 @@ func (me *irAst) writeAsGoTo(writer io.Writer) (err error) {
 		fmt.Fprint(buf, "\n\n")
 	}
 
-	if err = me.codeGenPkgDecl(writer); err == nil {
-		if err = me.codeGenModImps(writer); err == nil {
-			_, err = buf.WriteTo(writer)
+	if Flag.Comments {
+		if !Flag.NoPrefix {
+			_, err = fmt.Fprint(writer, "// \n")
+		}
+		if err == nil {
+			err = me.codeGenComments(writer, "", &me.irABase)
+		}
+	}
+	if err == nil {
+		if err = me.codeGenPkgDecl(writer); err == nil {
+			if err = me.codeGenModImps(writer); err == nil {
+				_, err = buf.WriteTo(writer)
+			}
 		}
 	}
 	return
