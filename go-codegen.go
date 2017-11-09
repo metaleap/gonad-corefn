@@ -410,6 +410,9 @@ func (me *irAst) codeGenTypeDef(w io.Writer, gtd *irGoNamedTypeRef) {
 
 func (me *irAst) codeGenTypeRef(w io.Writer, gtd *irGoNamedTypeRef, indlevel int) {
 	fmtembeds := "\t%s\n"
+	if gtd == nil { // TODO: remove this check ultimately
+		return
+	}
 	isfuncwithbodynotjustsig := gtd.Ref.F != nil && gtd.Ref.F.impl != nil
 	if gtd.Ref.Q != nil {
 		me.codeGenAst(w, -1, ªPkgSym(me.resolveGoTypeRefFromQName(gtd.Ref.Q.QName)))
@@ -489,6 +492,6 @@ func (me *irAst) codeGenTypeRef(w io.Writer, gtd *irGoNamedTypeRef, indlevel int
 		me.codeGenFuncArgs(w, indlevel, gtd.Ref.F.Rets, true, isfuncwithbodynotjustsig)
 	} else {
 		fmt.Fprint(w, "𝒈.𝑻/* "+gtd.Ref.origs.String()+" */")
-		me.irM.ensureImp("", "github.com/gonadz/-", "").emitted = true
+		me.irM.ensureImp("", "github.com/golamb/da", "").emitted = true
 	}
 }

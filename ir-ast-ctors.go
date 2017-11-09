@@ -81,6 +81,12 @@ func ªCall(callee irA, callargs ...irA) *irACall {
 	return a
 }
 
+func ªCase(cond irA) *irACase {
+	c := &irACase{CaseCond: cond, CaseBody: &irABlock{}}
+	cond.Base().parent, c.CaseBody.parent = c, c
+	return c
+}
+
 func ªComments(comments ...udevps.CoreComment) *irAComments {
 	a := &irAComments{irABase: irABase{Comments: comments}}
 	return a
@@ -116,9 +122,12 @@ func ªFor() *irAFor {
 	return a
 }
 
-func ªFunc() *irAFunc {
+func ªFunc(maybesig *irGoTypeRefFunc) *irAFunc {
 	a := &irAFunc{FuncImpl: ªBlock()}
 	a.FuncImpl.parent = a
+	if a.Ref.F = maybesig; maybesig == nil {
+		a.Ref.F = &irGoTypeRefFunc{impl: a.FuncImpl}
+	}
 	return a
 }
 
@@ -155,8 +164,9 @@ func ªLet(namego string, nameps string, val irA) *irALet {
 	return a
 }
 
-func ªNil() *irANil {
+func ªNil(comments ...udevps.CoreComment) *irANil {
 	a := &irANil{}
+	a.Comments = comments
 	return a
 }
 
@@ -215,6 +225,15 @@ func ªsetVarInGroup(namego string, right irA, typespec *irGoNamedTypeRef) *irAS
 	}
 	a.isInVarGroup = true
 	return a
+}
+
+func ªSwitch(on irA, cases []*irACase) *irASwitch {
+	s := &irASwitch{On: on, Cases: cases}
+	on.Base().parent = s
+	for _, c := range cases {
+		c.parent = s
+	}
+	return s
 }
 
 func ªSymGo(namego string) *irASym {

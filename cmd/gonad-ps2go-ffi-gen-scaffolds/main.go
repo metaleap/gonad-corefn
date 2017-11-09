@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	ffidir := (udevgo.GopathSrcGithub("gonadz", "-", "ffi", "ps2go"))
+	ffidir := (udevgo.GopathSrcGithub("golamb", "da", "ffi", "ps2go"))
 	l := len("output/")
 	dot2slash := strings.NewReplacer(".", "/")
 	dot2ˈ := strings.NewReplacer(".", "ˈ")

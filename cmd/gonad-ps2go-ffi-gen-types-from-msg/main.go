@@ -11,7 +11,7 @@ import (
 )
 
 func main() {
-	ffidir := (udevgo.GopathSrcGithub("gonadz", "-", "ffi", "ps2go"))
+	ffidir := (udevgo.GopathSrcGithub("golamb", "da", "ffi", "ps2go"))
 	needle := ": undefined: 𝙜ˈ"
 	l := len(needle)
 	ˈ2slash := strings.NewReplacer("ˈ", "/")

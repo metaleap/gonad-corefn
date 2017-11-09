@@ -14,7 +14,7 @@ import (
 type never struct{}
 
 const (
-	prefixDefaultFfiPkgImpPath = "github.com/gonadz/-/ffi/ps2go/"
+	prefixDefaultFfiPkgImpPath = "github.com/golamb/da/ffi/ps2go/"
 	prefixDefaultFfiPkgNs      = "𝙜ˈ"
 	msgfmt                     = "encountered un-anticipated %s '%s' in %v,\n\tplease report the case with the *.purs code(base) so that I can support it"
 )
