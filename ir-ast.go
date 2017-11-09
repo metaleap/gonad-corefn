@@ -11,6 +11,7 @@ import (
 )
 
 var (
+	exprTypeChar = &irGoNamedTypeRef{Ref: irGoTypeRef{Q: &irGoTypeRefSyn{QName: "Prim.Char"}}}
 	exprTypeInt  = &irGoNamedTypeRef{Ref: irGoTypeRef{Q: &irGoTypeRefSyn{QName: "Prim.Int"}}}
 	exprTypeNum  = &irGoNamedTypeRef{Ref: irGoTypeRef{Q: &irGoTypeRefSyn{QName: "Prim.Number"}}}
 	exprTypeStr  = &irGoNamedTypeRef{Ref: irGoTypeRef{Q: &irGoTypeRefSyn{QName: "Prim.String"}}}
@@ -326,6 +327,19 @@ func (me *irALitInt) Equiv(cmp irA) bool {
 func (_ *irALitInt) ExprType() *irGoNamedTypeRef { return exprTypeInt }
 func (_ irALitInt) isConstable() bool            { return true }
 
+type irALitChar struct {
+	irABase
+	LitChar rune
+}
+
+func (me *irALitChar) Equiv(cmp irA) bool {
+	c, _ := cmp.(*irALitChar)
+	return (me == nil && c == nil) || (me != nil && c != nil && me.LitChar == c.LitChar)
+}
+
+func (_ *irALitChar) ExprType() *irGoNamedTypeRef { return exprTypeChar }
+func (_ irALitChar) isConstable() bool            { return true }
+
 type irABlock struct {
 	irABase
 
@@ -512,6 +526,36 @@ func (me *irAFor) Equiv(cmp irA) bool {
 		}
 		for i, s := range me.ForStep {
 			if !s.Equiv(c.ForStep[i]) {
+				return false
+			}
+		}
+		return true
+	}
+	return me == nil && c == nil
+}
+
+type irACase struct {
+	irABase
+	CaseCond irA
+	CaseBody *irABlock
+}
+
+func (me *irACase) Equiv(cmp irA) bool {
+	c, _ := cmp.(*irACase)
+	return me == nil && c == nil || (me != nil && c != nil && me.CaseCond.Equiv(c.CaseCond) && me.CaseBody.Equiv(c.CaseBody))
+}
+
+type irASwitch struct {
+	irABase
+	On    irA
+	Cases []*irACase
+}
+
+func (me *irASwitch) Equiv(cmp irA) bool {
+	c, _ := cmp.(*irASwitch)
+	if me != nil && c != nil && me.On.Equiv(c.On) && len(me.Cases) == len(c.Cases) {
+		for i, cc := range me.Cases {
+			if !cc.Equiv(c.Cases[i]) {
 				return false
 			}
 		}

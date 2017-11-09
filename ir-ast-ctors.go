@@ -52,6 +52,12 @@ func ªOFld(fieldval irA) *irALitObjField {
 	return a
 }
 
+func ªC(literal rune) *irALitChar {
+	a := &irALitChar{LitChar: literal}
+	a.Ref.Q = &irGoTypeRefSyn{QName: "Prim.Char"}
+	return a
+}
+
 func ªS(literal string) *irALitStr {
 	a := &irALitStr{LitStr: literal}
 	a.Ref.Q = &irGoTypeRefSyn{QName: "Prim.String"}
@@ -192,9 +198,12 @@ func ªRet(retarg irA) *irARet {
 
 func ªSet(left irA, right irA) *irASet {
 	a := &irASet{SetLeft: left, ToRight: right}
-	a.SetLeft.Base().parent, a.ToRight.Base().parent = a, a
-	if rb := right.Base(); rb.hasTypeInfo() {
-		a.irGoNamedTypeRef = rb.irGoNamedTypeRef
+	a.SetLeft.Base().parent = a
+	if right != nil {
+		a.ToRight.Base().parent = a
+		if rb := right.Base(); rb.hasTypeInfo() {
+			a.irGoNamedTypeRef = rb.irGoNamedTypeRef
+		}
 	}
 	return a
 }

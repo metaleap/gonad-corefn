@@ -196,7 +196,19 @@ func walk(ast irA, intofuncvals bool, on funcIra2Ira) irA {
 			}
 		case *irALitObjField:
 			a.FieldVal = walk(a.FieldVal, intofuncvals, on)
-		case *irAComments, *irAPkgSym, *irANil, *irALitBool, *irALitNum, *irALitInt, *irALitStr, *irASym:
+		case *irASwitch:
+			a.On = walk(a.On, intofuncvals, on)
+			for i, cc := range a.Cases {
+				if tmp, _ := walk(cc, intofuncvals, on).(*irACase); tmp != nil {
+					a.Cases[i] = tmp
+				}
+			}
+		case *irACase:
+			a.CaseCond = walk(a.CaseCond, intofuncvals, on)
+			if tmp, _ := walk(a.CaseBody, intofuncvals, on).(*irABlock); tmp != nil {
+				a.CaseBody = tmp
+			}
+		case *irAComments, *irAPkgSym, *irANil, *irALitBool, *irALitNum, *irALitInt, *irALitChar, *irALitStr, *irASym:
 		default:
 			panicWithType(ast.Base().srcFilePath(), ast, "walk")
 		}

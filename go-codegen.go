@@ -48,6 +48,8 @@ func (me *irAst) codeGenAst(w io.Writer, indent int, ast irA) {
 		fmt.Fprintf(w, "%q", a.LitStr)
 	case *irALitBool:
 		fmt.Fprintf(w, "%t", a.LitBool)
+	case *irALitChar:
+		fmt.Fprintf(w, "%q", a.LitChar)
 	case *irALitNum:
 		s := fmt.Sprintf("%f", a.LitNum)
 		for strings.HasSuffix(s, "0") {
@@ -292,11 +294,12 @@ func (me *irAst) codeGenGroupedVals(w io.Writer, consts bool, asts []irA) {
 			return
 		}
 		for i, a := range asts {
-			val, name, typeref := valˇnameˇtype(a)
-			me.codeGenAst(w, 1, ªsetVarInGroup(name, val, typeref))
-			if i < (len(asts) - 1) {
-				if _, ok := asts[i+1].(*irAComments); ok {
-					fmt.Fprint(w, "\n")
+			if val, name, typeref := valˇnameˇtype(a); val != nil {
+				me.codeGenAst(w, 1, ªsetVarInGroup(name, val, typeref))
+				if i < (len(asts) - 1) {
+					if _, ok := asts[i+1].(*irAComments); ok {
+						fmt.Fprint(w, "\n")
+					}
 				}
 			}
 		}
