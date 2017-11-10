@@ -86,13 +86,20 @@ func (me *psPkg) addModPkgFromPsSrcFileIfCoreFiles(relpath string, gopkgdir stri
 			modinfo.goOutFilePath = filepath.Join(modinfo.goOutDirPath, modinfo.qName) + ".go"
 			modinfo.gopkgfilepath = filepath.Join(gopkgdir, modinfo.goOutFilePath)
 			if ufs.FileExists(modinfo.irMetaFilePath) && ufs.FileExists(modinfo.gopkgfilepath) {
-				stalemetaˇimp, _ := ufs.IsNewerThan(modinfo.impFilePath, modinfo.irMetaFilePath)
-				stalepkgˇimp, _ := ufs.IsNewerThan(modinfo.impFilePath, modinfo.gopkgfilepath)
 				stalemetaˇcfn, _ := ufs.IsNewerThan(modinfo.cfnFilePath, modinfo.irMetaFilePath)
 				stalepkgˇcfn, _ := ufs.IsNewerThan(modinfo.cfnFilePath, modinfo.gopkgfilepath)
-				stalemetaˇext, _ := ufs.IsNewerThan(modinfo.extFilePath, modinfo.irMetaFilePath)
-				stalepkgˇext, _ := ufs.IsNewerThan(modinfo.extFilePath, modinfo.gopkgfilepath)
-				modinfo.reGenIr = stalemetaˇimp || stalepkgˇimp || stalemetaˇcfn || stalepkgˇcfn || stalemetaˇext || stalepkgˇext
+				if modinfo.reGenIr = stalemetaˇcfn || stalepkgˇcfn; !modinfo.reGenIr {
+					if ProjCfg.In.UseExterns && ufs.FileExists(modinfo.extFilePath) {
+						stalemetaˇext, _ := ufs.IsNewerThan(modinfo.extFilePath, modinfo.irMetaFilePath)
+						stalepkgˇext, _ := ufs.IsNewerThan(modinfo.extFilePath, modinfo.gopkgfilepath)
+						modinfo.reGenIr = modinfo.reGenIr || stalemetaˇext || stalepkgˇext
+					}
+					if ProjCfg.In.UseLegacyCoreImp && ufs.FileExists(modinfo.impFilePath) {
+						stalemetaˇimp, _ := ufs.IsNewerThan(modinfo.impFilePath, modinfo.irMetaFilePath)
+						stalepkgˇimp, _ := ufs.IsNewerThan(modinfo.impFilePath, modinfo.gopkgfilepath)
+						modinfo.reGenIr = modinfo.reGenIr || stalemetaˇimp || stalepkgˇimp
+					}
+				}
 			} else {
 				modinfo.reGenIr = true
 			}

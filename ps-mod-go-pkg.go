@@ -7,6 +7,7 @@ import (
 
 	"github.com/metaleap/go-util"
 	"github.com/metaleap/go-util/dev/ps"
+	"github.com/metaleap/go-util/fs"
 )
 
 type modPkg struct { //	A PureScript Module transforms into a Go Package, hence modPkg
@@ -79,16 +80,20 @@ func (me *modPkg) populatePkgIrMeta() {
 }
 
 func (me *modPkg) reGenPkgIrMeta() (err error) {
-	// if err = umisc.JsonDecodeFromFile(me.extFilePath, &me.coreExt); err == nil {
-	// 	if err = umisc.JsonDecodeFromFile(me.impFilePath, &me.coreImp); err == nil {
-	if err = umisc.JsonDecodeFromFile(me.cfnFilePath, &me.coreFn); err == nil {
-		me.irMeta = &irMeta{mod: me}
-		me.irMeta.populateImportsEarly()
-		// } else {
-		// 	me.coreImp = nil
+	if ProjCfg.In.UseExterns && ufs.FileExists(me.extFilePath) {
+		err = umisc.JsonDecodeFromFile(me.extFilePath, &me.coreExt)
 	}
-	// 	}
-	// }
+	if err == nil && ProjCfg.In.UseLegacyCoreImp && ufs.FileExists(me.impFilePath) {
+		err = umisc.JsonDecodeFromFile(me.impFilePath, &me.coreImp)
+	}
+	if err == nil {
+		if err = umisc.JsonDecodeFromFile(me.cfnFilePath, &me.coreFn); err == nil {
+			me.irMeta = &irMeta{mod: me}
+			me.irMeta.populateImportsEarly()
+		} else {
+			me.coreImp, me.coreFn, me.coreExt = nil, nil, nil
+		}
+	}
 	return
 }
 

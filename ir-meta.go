@@ -125,15 +125,50 @@ func (me *irMeta) hasExport(name string) bool {
 }
 
 func (me *irMeta) populateFromCore() {
-	if me.mod.coreImp != nil && me.mod.coreExt != nil {
-		me.populateFromCoreImpAndExt()
-	} else if me.mod.coreFn != nil {
+	if ProjCfg.In.UseLegacyCoreImp && me.mod.coreImp != nil {
+		me.populateFromCoreImp()
+	} else {
 		me.populateFromCoreFn()
 	}
 }
 
+func (me *irMeta) populateFromCoreExt() {
+	for _, extexp := range me.mod.coreExt.EfExports {
+		if len(extexp.TypeRef) > 1 {
+			tname := extexp.TypeRef[1].(string)
+			me.Exports = append(me.Exports, tname)
+			if len(extexp.TypeRef) > 2 {
+				if ctornames, _ := extexp.TypeRef[2].([]interface{}); len(ctornames) > 0 {
+					for _, ctorname := range ctornames {
+						cn := ctorname.(string)
+						me.Exports = append(me.Exports, cn)
+						me.Exports = append(me.Exports, tname+"ĸ"+cn)
+					}
+				} else if me.mod.coreImp != nil {
+					if td := me.mod.coreImp.DeclEnv.TypeDefs[tname]; td != nil && td.Decl.DataType != nil {
+						for _, dtctor := range td.Decl.DataType.Ctors {
+							me.Exports = append(me.Exports, tname+"ĸ"+dtctor.Name)
+						}
+					}
+				}
+			}
+		} else if len(extexp.TypeClassRef) > 1 {
+			me.Exports = append(me.Exports, extexp.TypeClassRef[1].(string))
+		} else if len(extexp.ValueRef) > 1 {
+			me.Exports = append(me.Exports, extexp.ValueRef[1].(map[string]interface{})["Ident"].(string))
+		} else if len(extexp.TypeInstanceRef) > 1 {
+			me.Exports = append(me.Exports, extexp.TypeInstanceRef[1].(map[string]interface{})["Ident"].(string))
+		}
+	}
+}
+
 func (me *irMeta) populateFromCoreFn() {
-	me.Exports = me.mod.coreFn.Exports
+	usecfnexports := (!ProjCfg.In.UseExterns) || me.mod.coreExt == nil
+	if usecfnexports {
+		me.Exports = me.mod.coreFn.Exports
+	} else {
+		me.populateFromCoreExt()
+	}
 	for i := 0; i < len(me.mod.coreFn.Decls); i++ {
 		decl := &me.mod.coreFn.Decls[i]
 		for j, _ := range decl.Binds {
@@ -159,55 +194,32 @@ func (me *irMeta) populateFromCoreFn() {
 			}
 		}
 	}
-	for _, tdd := range me.EnvTypeDataDecls {
-		anyctorsexported := false
-		if len(tdd.Ctors) == 1 && len(tdd.Ctors[0].Args) == 1 {
-			tdd.Ctors[0].IsNewType = true
-		}
-		if !me.hasExport(tdd.Name) {
-			for _, ctor := range tdd.Ctors {
-				if ctor.Export {
-					anyctorsexported = true
-					break
-				}
+	if usecfnexports {
+		for _, tdd := range me.EnvTypeDataDecls {
+			anyctorsexported := false
+			if len(tdd.Ctors) == 1 && len(tdd.Ctors[0].Args) == 1 {
+				tdd.Ctors[0].IsNewType = true
 			}
-			if anyctorsexported {
-				me.Exports = append(me.Exports, tdd.Name)
+			if !me.hasExport(tdd.Name) {
+				for _, ctor := range tdd.Ctors {
+					if ctor.Export {
+						anyctorsexported = true
+						break
+					}
+				}
+				if anyctorsexported {
+					me.Exports = append(me.Exports, tdd.Name)
+				}
 			}
 		}
 	}
 	me.populateGoTypeDefs()
 }
 
-func (me *irMeta) populateFromCoreImpAndExt() {
+func (me *irMeta) populateFromCoreImp() {
 	me.mod.coreImp.Prep()
-	// discover and store exports
-	for _, extexp := range me.mod.coreExt.EfExports {
-		if len(extexp.TypeRef) > 1 {
-			tname := extexp.TypeRef[1].(string)
-			me.Exports = append(me.Exports, tname)
-			if len(extexp.TypeRef) > 2 {
-				if ctornames, _ := extexp.TypeRef[2].([]interface{}); len(ctornames) > 0 {
-					for _, ctorname := range ctornames {
-						if cn, _ := ctorname.(string); cn != "" && !me.hasExport(cn) {
-							me.Exports = append(me.Exports, tname+"ĸ"+cn)
-						}
-					}
-				} else {
-					if td := me.mod.coreImp.DeclEnv.TypeDefs[tname]; td != nil && td.Decl.DataType != nil {
-						for _, dtctor := range td.Decl.DataType.Ctors {
-							me.Exports = append(me.Exports, tname+"ĸ"+dtctor.Name)
-						}
-					}
-				}
-			}
-		} else if len(extexp.TypeClassRef) > 1 {
-			me.Exports = append(me.Exports, extexp.TypeClassRef[1].(string))
-		} else if len(extexp.ValueRef) > 1 {
-			me.Exports = append(me.Exports, extexp.ValueRef[1].(map[string]interface{})["Ident"].(string))
-		} else if len(extexp.TypeInstanceRef) > 1 {
-			me.Exports = append(me.Exports, extexp.TypeInstanceRef[1].(map[string]interface{})["Ident"].(string))
-		}
+	if ProjCfg.In.UseExterns && me.mod.coreExt != nil {
+		me.populateFromCoreExt()
 	}
 	// transform 100% complete coreimp structures
 	// into lean, only-what-we-use irMeta structures (still representing PS-not-Go decls)

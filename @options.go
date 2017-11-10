@@ -10,6 +10,8 @@ import (
 type Cfg struct {
 	In struct {
 		CoreFilesDirPath string // dir path containing Some.Module.QName/corefn.json files
+		UseLegacyCoreImp bool   // to be ditched completely ultimately
+		UseExterns       bool   // for exports instead of corefn
 	}
 	Out struct {
 		IncludeUnusedDeps bool
