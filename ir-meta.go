@@ -111,59 +111,114 @@ func (me *irMeta) ensureImp(lname, imppath, qname string) *irMPkgRef {
 	return imp
 }
 
+func (me *irMeta) envTypeDataDeclByPsName(nameps string) *irPsTypeDataDef {
+	for _, tdd := range me.EnvTypeDataDecls {
+		if tdd.Name == nameps {
+			return tdd
+		}
+	}
+	return nil
+}
+
 func (me *irMeta) hasExport(name string) bool {
 	return uslice.StrHas(me.Exports, name)
 }
 
 func (me *irMeta) populateFromCore() {
-	if me.mod.coreImp != nil {
-		me.mod.coreImp.Prep()
-		// discover and store exports
-		if me.mod.coreExt != nil {
-			for _, exp := range me.mod.coreExt.EfExports {
-				if len(exp.TypeRef) > 1 {
-					tname := exp.TypeRef[1].(string)
-					me.Exports = append(me.Exports, tname)
-					if len(exp.TypeRef) > 2 {
-						if ctornames, _ := exp.TypeRef[2].([]interface{}); len(ctornames) > 0 {
-							for _, ctorname := range ctornames {
-								if cn, _ := ctorname.(string); cn != "" && !me.hasExport(cn) {
-									me.Exports = append(me.Exports, tname+"ĸ"+cn)
-								}
-							}
-						} else {
-							if td := me.mod.coreImp.DeclEnv.TypeDefs[tname]; td != nil && td.Decl.DataType != nil {
-								for _, dtctor := range td.Decl.DataType.Ctors {
-									me.Exports = append(me.Exports, tname+"ĸ"+dtctor.Name)
-								}
-							}
-						}
-					}
-				} else if len(exp.TypeClassRef) > 1 {
-					me.Exports = append(me.Exports, exp.TypeClassRef[1].(string))
-				} else if len(exp.ValueRef) > 1 {
-					me.Exports = append(me.Exports, exp.ValueRef[1].(map[string]interface{})["Ident"].(string))
-				} else if len(exp.TypeInstanceRef) > 1 {
-					me.Exports = append(me.Exports, exp.TypeInstanceRef[1].(map[string]interface{})["Ident"].(string))
+	if me.mod.coreImp != nil && me.mod.coreExt != nil {
+		me.populateFromCoreImpAndExt()
+	} else if me.mod.coreFn != nil {
+		me.populateFromCoreFn()
+	}
+}
+
+func (me *irMeta) populateFromCoreFn() {
+	me.Exports = me.mod.coreFn.Exports
+	for i := 0; i < len(me.mod.coreFn.Decls); i++ {
+		decl := &me.mod.coreFn.Decls[i]
+		for j, _ := range decl.Binds {
+			if ctor := decl.Binds[j].Expression.Constructor; ctor != nil {
+				dd := me.envTypeDataDeclByPsName(ctor.TypeName)
+				if dd == nil {
+					dd = &irPsTypeDataDef{Name: ctor.TypeName}
+					me.EnvTypeDataDecls = append(me.EnvTypeDataDecls, dd)
 				}
+				ddctor := irPsTypeDataCtor{Name: ctor.ConstructorName, Export: me.hasExport(ctor.ConstructorName), DataTypeName: ctor.TypeName}
+				if ddctor.Export {
+					me.Exports = append(me.Exports, ctor.TypeName+"ĸ"+ctor.ConstructorName)
+				}
+				ddctor.Args = make([]*irPsTypeDataCtorArg, 0, len(ctor.FieldNames))
+				for _, cfn := range ctor.FieldNames {
+					ddctor.Args = append(ddctor.Args, &irPsTypeDataCtorArg{Name: cfn})
+				}
+				dd.Ctors = append(dd.Ctors, &ddctor)
+
+				me.mod.coreFn.RemoveAt(i)
+				i--
+				break // so far true across 700+ real-world PS modules: whenever there's a Constructor inside decl.Binds, the latter has len=1
 			}
 		}
-	} else {
-		me.Exports = me.mod.coreFn.Exports
 	}
-
-	if me.mod.coreImp != nil {
-		// transform 100% complete coreimp structures
-		// into lean, only-what-we-use irMeta structures (still representing PS-not-Go decls)
-		me.populateEnvTypeSyns()
-		me.populateEnvTypeClasses()
-		me.populateEnvTypeDataDecls()
-		me.populateEnvFuncsAndVals()
-
-		// then transform those into Go decls
-		me.populateGoTypeDefs()
-		me.populateGoValDecls()
+	for _, tdd := range me.EnvTypeDataDecls {
+		anyctorsexported := false
+		if len(tdd.Ctors) == 1 && len(tdd.Ctors[0].Args) == 1 {
+			tdd.Ctors[0].IsNewType = true
+		}
+		if !me.hasExport(tdd.Name) {
+			for _, ctor := range tdd.Ctors {
+				if ctor.Export {
+					anyctorsexported = true
+					break
+				}
+			}
+			if anyctorsexported {
+				me.Exports = append(me.Exports, tdd.Name)
+			}
+		}
 	}
+	me.populateGoTypeDefs()
+}
+
+func (me *irMeta) populateFromCoreImpAndExt() {
+	me.mod.coreImp.Prep()
+	// discover and store exports
+	for _, extexp := range me.mod.coreExt.EfExports {
+		if len(extexp.TypeRef) > 1 {
+			tname := extexp.TypeRef[1].(string)
+			me.Exports = append(me.Exports, tname)
+			if len(extexp.TypeRef) > 2 {
+				if ctornames, _ := extexp.TypeRef[2].([]interface{}); len(ctornames) > 0 {
+					for _, ctorname := range ctornames {
+						if cn, _ := ctorname.(string); cn != "" && !me.hasExport(cn) {
+							me.Exports = append(me.Exports, tname+"ĸ"+cn)
+						}
+					}
+				} else {
+					if td := me.mod.coreImp.DeclEnv.TypeDefs[tname]; td != nil && td.Decl.DataType != nil {
+						for _, dtctor := range td.Decl.DataType.Ctors {
+							me.Exports = append(me.Exports, tname+"ĸ"+dtctor.Name)
+						}
+					}
+				}
+			}
+		} else if len(extexp.TypeClassRef) > 1 {
+			me.Exports = append(me.Exports, extexp.TypeClassRef[1].(string))
+		} else if len(extexp.ValueRef) > 1 {
+			me.Exports = append(me.Exports, extexp.ValueRef[1].(map[string]interface{})["Ident"].(string))
+		} else if len(extexp.TypeInstanceRef) > 1 {
+			me.Exports = append(me.Exports, extexp.TypeInstanceRef[1].(map[string]interface{})["Ident"].(string))
+		}
+	}
+	// transform 100% complete coreimp structures
+	// into lean, only-what-we-use irMeta structures (still representing PS-not-Go decls)
+	me.populateEnvTypeSyns()
+	me.populateEnvTypeClasses()
+	me.populateEnvTypeDataDecls()
+	me.populateEnvFuncsAndVals()
+
+	// then transform those into Go decls
+	me.populateGoTypeDefs()
+	me.populateGoValDecls()
 }
 
 func (me *irMeta) populateImportsEarly() {

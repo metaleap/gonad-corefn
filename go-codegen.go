@@ -79,8 +79,11 @@ func (me *irAst) codeGenAst(w io.Writer, indent int, ast irA) {
 		fmt.Fprint(w, "}")
 	case *irAConst:
 		fmt.Fprintf(w, "%sconst %s ", tabs, a.NameGo)
-		me.codeGenTypeRef(w, a.ExprType(), -1)
-		fmt.Fprint(w, " = ")
+		if ProjCfg.CodeGen.ForceExplicitTypeAnnotations {
+			me.codeGenTypeRef(w, a.ExprType(), -1)
+			fmt.Fprint(w, " ")
+		}
+		fmt.Fprint(w, "= ")
 		me.codeGenAst(w, indent, a.ConstVal)
 		fmt.Fprint(w, "\n")
 	case *irASym:
@@ -107,9 +110,12 @@ func (me *irAst) codeGenAst(w io.Writer, indent int, ast irA) {
 				me.codeGenAst(w, indent, a.LetVal)
 			} else {
 				fmt.Fprintf(w, "%svar %s ", tabs, a.NameGo)
-				me.codeGenTypeRef(w, at, -1)
+				if ProjCfg.CodeGen.ForceExplicitTypeAnnotations {
+					me.codeGenTypeRef(w, at, -1)
+					fmt.Fprint(w, " ")
+				}
 				if a.LetVal != nil {
-					fmt.Fprint(w, " = ")
+					fmt.Fprint(w, "= ")
 					me.codeGenAst(w, indent, a.LetVal)
 				}
 				if a.isTopLevel() {
@@ -199,7 +205,7 @@ func (me *irAst) codeGenAst(w io.Writer, indent int, ast irA) {
 	case *irASet:
 		fmt.Fprint(w, tabs)
 		me.codeGenAst(w, indent, a.SetLeft)
-		if a.isInVarGroup {
+		if a.isInVarGroup && ProjCfg.CodeGen.ForceExplicitTypeAnnotations {
 			fmt.Fprint(w, " ")
 			me.codeGenTypeRef(w, &a.irGoNamedTypeRef, indent)
 		}
@@ -497,7 +503,11 @@ func (me *irAst) codeGenTypeRef(w io.Writer, gtd *irGoNamedTypeRef, indlevel int
 		me.codeGenFuncArgs(w, indlevel, gtd.Ref.F.Args, false, isfuncwithbodynotjustsig)
 		me.codeGenFuncArgs(w, indlevel, gtd.Ref.F.Rets, true, isfuncwithbodynotjustsig)
 	} else {
-		fmt.Fprint(w, "𝒈.𝑻/* "+gtd.Ref.origs.String()+" */")
-		me.irM.ensureImp("", "github.com/golamb/da", "").emitted = true
+		if ProjCfg.CodeGen.NoAliasForEmptyInterface {
+			fmt.Fprintf(w, "interface{} /* %s */", gtd.Ref.origs.String())
+		} else {
+			fmt.Fprintf(w, "𝒈.𝑻 /* %s */", gtd.Ref.origs.String())
+			me.irM.ensureImp("", "github.com/golamb/da", "").emitted = true
+		}
 	}
 }

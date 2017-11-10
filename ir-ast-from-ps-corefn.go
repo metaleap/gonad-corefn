@@ -9,12 +9,8 @@ import (
 )
 
 func (me *irAst) intoFromˇDecl(into *irABlock, decl *udevps.CoreFnDecl) {
-	if decl.CoreFnDeclBind != nil {
-		into.add(me.fromˇDeclBind(into.parent == nil, decl.CoreFnDeclBind))
-	} else {
-		for i, _ := range decl.Binds {
-			into.add(me.fromˇDeclBind(into.parent == nil, &decl.Binds[i]))
-		}
+	for i, _ := range decl.Binds {
+		into.add(me.fromˇDeclBind(into.parent == nil, &decl.Binds[i]))
 	}
 }
 
@@ -42,6 +38,9 @@ func (me *irAst) fromˇDeclBind(istoplevel bool, bind *udevps.CoreFnDeclBind) (a
 }
 
 func (me *irAst) fromˇExpr(expr *udevps.CoreFnExpr) irA {
+	if ann := expr.Annotation(); ann != nil && ann.Meta != nil {
+		println(expr.String() + "\t\t\t" + ann.Meta.String())
+	}
 	if expr.Abs != nil {
 		return me.fromˇExprAbs(expr.Abs)
 	} else if expr.Accessor != nil {
@@ -50,8 +49,6 @@ func (me *irAst) fromˇExpr(expr *udevps.CoreFnExpr) irA {
 		return me.fromˇExprApp(expr.App)
 	} else if expr.Case != nil {
 		return me.fromˇExprCase(expr.Case)
-	} else if expr.Constructor != nil {
-		return me.fromˇExprCtor(expr.Constructor)
 	} else if expr.Let != nil {
 		return me.fromˇExprLet(expr.Let)
 	} else if expr.Literal != nil {
@@ -61,7 +58,7 @@ func (me *irAst) fromˇExpr(expr *udevps.CoreFnExpr) irA {
 	} else if expr.Var != nil {
 		return me.fromˇExprVar(expr.Var)
 	}
-	return ªSymGo("NOT_YET_IMPL")
+	panic(notImplErr("CoreFn expression in "+me.mod.cfnFilePath, expr.String(), *expr))
 }
 
 func (me *irAst) fromˇExprAbs(xabs *udevps.CoreFnExprAbs) *irAFunc {
@@ -95,10 +92,6 @@ func (me *irAst) fromˇExprCase(xcase *udevps.CoreFnExprCase) *irASwitch {
 		exprs = append(exprs, me.fromˇExpr(&xcase.Expressions[i]))
 	}
 	return ªSwitch(ªSymGo("exprs0?"), alts)
-}
-
-func (me *irAst) fromˇExprCtor(xctor *udevps.CoreFnExprCtor) *irASym {
-	return ªSymGo("CTOR_" + xctor.TypeName + "___" + xctor.ConstructorName)
 }
 
 func (me *irAst) fromˇExprCaseAlt(xcasealt *udevps.CoreFnExprCaseAlt) *irACase {
@@ -135,9 +128,11 @@ func (me *irAst) fromˇExprLit(xlit *udevps.CoreFnExprLit) irA {
 			arr, l := ªA(), len(xlv.Array)
 			all := make([]irA, l, l)
 			for i, _ := range xlv.Array {
-				all[i] = me.fromˇExpr(&xlv.Array[i])
-				all[i].Base().parent = arr
+				elem := me.fromˇExpr(&xlv.Array[i])
+				elem.Base().parent = arr
+				all[i] = elem
 			}
+			arr.ArrVals = all
 			return arr
 		}
 	case "ObjectLiteral":

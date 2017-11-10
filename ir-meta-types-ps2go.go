@@ -104,8 +104,11 @@ func (me *irMeta) toIrGoDataDefs(typedatadecls []*irPsTypeDataDef) (gtds irGoNam
 		for _, ctor := range td.Ctors {
 			if numargs := len(ctor.Args); numargs > 0 {
 				if hasctorargs = true; numargs == 1 && numctors == 1 {
-					if tc := ctor.Args[0].Type.Q; tc == nil || tc.QName != (me.mod.qName+"."+td.Name) {
-						isnewtype = true
+					isnewtype = true
+					if ct := ctor.Args[0].Type; ct != nil {
+						if ctq := ct.Q; ctq != nil && ctq.QName == (me.mod.qName+"."+td.Name) {
+							isnewtype = false
+						}
 					}
 				}
 			}
@@ -186,60 +189,62 @@ func (me *irMeta) toIrGoDataDefs(typedatadecls []*irPsTypeDataDef) (gtds irGoNam
 }
 
 func (me *irMeta) toIrGoTypeRef(tdict map[string][]string, tref *irPsTypeRef) *irGoTypeRef {
-	tAppl := tref.A
-	tConstr := tref.C
-	tCtor := tref.Q
-	tForall := tref.F
-	tRow := tref.R
-
-	origs := irPsTypeRefs{tref}
 	gtr := &irGoTypeRef{}
-	if tCtor != nil {
-		gtr.Q = &irGoTypeRefSyn{QName: tCtor.QName}
-	} else if tConstr != nil {
-		gtr = me.toIrGoTypeRef(tdict, tConstr.Ref)
-	} else if tForall != nil {
-		gtr = me.toIrGoTypeRef(tdict, tForall.Ref)
-	} else if tRow != nil {
-		refstruc := &irGoTypeRefStruct{}
-		myfield := &irGoNamedTypeRef{Export: true}
-		myfield.setBothNamesFromPsName(tRow.Label)
-		myfield.Ref.setFrom(me.toIrGoTypeRef(tdict, tRow.Left))
-		refstruc.Fields = append(refstruc.Fields, myfield)
-		if nextrow := me.toIrGoTypeRef(tdict, tRow.Right); nextrow != nil && nextrow.S != nil {
-			refstruc.Fields = append(refstruc.Fields, nextrow.S.Fields...)
-		}
-		refstruc.PassByPtr = len(refstruc.Fields) >= ProjCfg.CodeGen.PtrStructMinFieldCount
-		gtr.S = refstruc
-	} else if tAppl != nil {
-		if leftctor := tAppl.Left.Q; leftctor != nil {
-			if leftctor.QName == "Prim.Record" {
-				gtr = me.toIrGoTypeRef(tdict, tAppl.Right)
-			} else if leftctor.QName == "Prim.Array" {
-				refarr := &irGoTypeRefArray{Of: &irGoNamedTypeRef{}}
-				refarr.Of.Ref.setFrom(me.toIrGoTypeRef(tdict, tAppl.Right))
-				gtr.A = refarr
-			} else { // unary known-type app (like Maybe, List, Array etc)
-				gtr.Q = &irGoTypeRefSyn{QName: leftctor.QName}
+	if tref != nil {
+		tAppl := tref.A
+		tConstr := tref.C
+		tCtor := tref.Q
+		tForall := tref.F
+		tRow := tref.R
+
+		origs := irPsTypeRefs{tref}
+		if tCtor != nil {
+			gtr.Q = &irGoTypeRefSyn{QName: tCtor.QName}
+		} else if tConstr != nil {
+			gtr = me.toIrGoTypeRef(tdict, tConstr.Ref)
+		} else if tForall != nil {
+			gtr = me.toIrGoTypeRef(tdict, tForall.Ref)
+		} else if tRow != nil {
+			refstruc := &irGoTypeRefStruct{}
+			myfield := &irGoNamedTypeRef{Export: true}
+			myfield.setBothNamesFromPsName(tRow.Label)
+			myfield.Ref.setFrom(me.toIrGoTypeRef(tdict, tRow.Left))
+			refstruc.Fields = append(refstruc.Fields, myfield)
+			if nextrow := me.toIrGoTypeRef(tdict, tRow.Right); nextrow != nil && nextrow.S != nil {
+				refstruc.Fields = append(refstruc.Fields, nextrow.S.Fields...)
 			}
-		} else if leftappl := tAppl.Left.A; leftappl != nil {
-			if leftappl.Left.Q != nil {
-				if leftappl.Left.Q.QName == "Prim.Function" {
-					gtr.F = &irGoTypeRefFunc{}
-					gtr.F.Args = irGoNamedTypeRefs{&irGoNamedTypeRef{}}
-					gtr.F.Args[0].Ref.setFrom(me.toIrGoTypeRef(tdict, leftappl.Right))
-					gtr.F.Rets = irGoNamedTypeRefs{&irGoNamedTypeRef{}}
-					gtr.F.Rets[0].Ref.setFrom(me.toIrGoTypeRef(tdict, tAppl.Right))
-				} else { // n>1-ary type app (like Either)
-					gtr.Q = &irGoTypeRefSyn{QName: leftappl.Left.Q.QName}
+			refstruc.PassByPtr = len(refstruc.Fields) >= ProjCfg.CodeGen.PtrStructMinFieldCount
+			gtr.S = refstruc
+		} else if tAppl != nil {
+			if leftctor := tAppl.Left.Q; leftctor != nil {
+				if leftctor.QName == "Prim.Record" {
+					gtr = me.toIrGoTypeRef(tdict, tAppl.Right)
+				} else if leftctor.QName == "Prim.Array" {
+					refarr := &irGoTypeRefArray{Of: &irGoNamedTypeRef{}}
+					refarr.Of.Ref.setFrom(me.toIrGoTypeRef(tdict, tAppl.Right))
+					gtr.A = refarr
+				} else { // unary known-type app (like Maybe, List, Array etc)
+					gtr.Q = &irGoTypeRefSyn{QName: leftctor.QName}
 				}
-			} else {
-				if strings.HasPrefix(me.mod.srcFilePath, "bower_components/purescript-prelude") {
-					println(me.mod.srcFilePath + "\t\t\t" + tref.String())
+			} else if leftappl := tAppl.Left.A; leftappl != nil {
+				if leftappl.Left.Q != nil {
+					if leftappl.Left.Q.QName == "Prim.Function" {
+						gtr.F = &irGoTypeRefFunc{}
+						gtr.F.Args = irGoNamedTypeRefs{&irGoNamedTypeRef{}}
+						gtr.F.Args[0].Ref.setFrom(me.toIrGoTypeRef(tdict, leftappl.Right))
+						gtr.F.Rets = irGoNamedTypeRefs{&irGoNamedTypeRef{}}
+						gtr.F.Rets[0].Ref.setFrom(me.toIrGoTypeRef(tdict, tAppl.Right))
+					} else { // n>1-ary type app (like Either)
+						gtr.Q = &irGoTypeRefSyn{QName: leftappl.Left.Q.QName}
+					}
+				} else {
+					if strings.HasPrefix(me.mod.srcFilePath, "bower_components/purescript-prelude") {
+						println(me.mod.srcFilePath + "\t\t\t" + tref.String())
+					}
 				}
 			}
 		}
+		gtr.origs = append(origs, gtr.origs...) // prepend "ours" in front, in case it has any from one of the above branches
 	}
-	gtr.origs = append(origs, gtr.origs...) // prepend "ours" in front, in case it has any from one of the above branches
 	return gtr
 }

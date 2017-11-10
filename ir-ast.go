@@ -711,6 +711,18 @@ func (me *irALitArr) Equiv(cmp irA) bool {
 	return me == nil && c == nil
 }
 
+func (me *irALitArr) ExprType() *irGoNamedTypeRef {
+	if (!me.hasTypeInfo()) && len(me.ArrVals) > 0 {
+		for _, av := range me.ArrVals {
+			if avt := av.ExprType(); avt.hasTypeInfo() {
+				me.Ref.clear(false)
+				me.Ref.A = &irGoTypeRefArray{Of: avt}
+			}
+		}
+	}
+	return &me.irGoNamedTypeRef
+}
+
 type irAIndex struct {
 	irABase
 	IdxLeft  irA

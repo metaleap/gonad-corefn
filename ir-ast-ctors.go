@@ -7,14 +7,7 @@ import (
 
 func ªA(exprs ...irA) *irALitArr {
 	a := &irALitArr{ArrVals: exprs}
-	a.Ref.A = &irGoTypeRefArray{}
-	typefound := false
-	for _, expr := range a.ArrVals {
-		eb := expr.Base()
-		if eb.parent = a; !typefound && eb.hasTypeInfo() {
-			a.Ref.A.Of = &eb.irGoNamedTypeRef
-		}
-	}
+	a.ExprType()
 	return a
 }
 

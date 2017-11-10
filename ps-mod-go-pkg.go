@@ -73,6 +73,7 @@ func (me *modPkg) populatePkgIrMeta() {
 	if me.coreFn == nil {
 		me.irMeta.populateFromLoaded()
 	} else {
+		me.coreFn.Prep()
 		me.irMeta.populateFromCore()
 	}
 }
@@ -93,6 +94,7 @@ func (me *modPkg) reGenPkgIrMeta() (err error) {
 
 func (me *modPkg) prepIrAst() {
 	me.irAst = &irAst{mod: me, irM: me.irMeta}
+	me.irAst.irABlock.root = me.irAst
 	me.irAst.prepFromCore()
 }
 
