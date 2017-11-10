@@ -26,7 +26,7 @@ type modPkg struct { //	A PureScript Module transforms into a Go Package, hence 
 	irMeta        *irMeta
 	irAst         *irAst
 	parentPkg     *psPkg
-	coreExt       *udevps.Extern
+	coreExt       *udevps.CoreExt
 	coreImp       *udevps.CoreImp
 	coreFn        *udevps.CoreFn
 	gopkgfilepath string // full target file path (not necessarily absolute but starting with the given gopath)

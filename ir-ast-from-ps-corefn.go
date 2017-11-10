@@ -38,9 +38,6 @@ func (me *irAst) fromˇDeclBind(istoplevel bool, bind *udevps.CoreFnDeclBind) (a
 }
 
 func (me *irAst) fromˇExpr(expr *udevps.CoreFnExpr) irA {
-	// if ann := expr.Annotation(); ann != nil && ann.Meta != nil {
-	// 	println(expr.String() + "\t\t\t" + ann.Meta.String())
-	// }
 	if expr.Abs != nil {
 		return me.fromˇExprAbs(expr.Abs)
 	} else if expr.Accessor != nil {

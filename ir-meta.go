@@ -133,7 +133,7 @@ func (me *irMeta) populateFromCore() {
 }
 
 func (me *irMeta) populateFromCoreExt() {
-	for _, extexp := range me.mod.coreExt.EfExports {
+	for _, extexp := range me.mod.coreExt.Exports {
 		if len(extexp.TypeRef) > 1 {
 			tname := extexp.TypeRef[1].(string)
 			me.Exports = append(me.Exports, tname)
@@ -172,15 +172,19 @@ func (me *irMeta) populateFromCoreFn() {
 	for i := 0; i < len(me.mod.coreFn.Decls); i++ {
 		decl := &me.mod.coreFn.Decls[i]
 		for j, _ := range decl.Binds {
-			if ctor := decl.Binds[j].Expression.Constructor; ctor != nil {
-				dd := me.envTypeDataDeclByPsName(ctor.TypeName)
-				if dd == nil {
+			declbind := &decl.Binds[j]
+			var dd *irPsTypeDataDef
+			if ctor := declbind.Expression.Constructor; ctor != nil {
+				if ctor.Annotation.Meta != nil {
+					panic(notImplErr("CoreFnExpr.Constructor.Annotation.Meta", ctor.Annotation.Meta.String(), *ctor.Annotation.Meta))
+				}
+				if dd = me.envTypeDataDeclByPsName(ctor.TypeName); dd == nil {
 					dd = &irPsTypeDataDef{Name: ctor.TypeName}
 					me.EnvTypeDataDecls = append(me.EnvTypeDataDecls, dd)
 				}
 				ddctor := irPsTypeDataCtor{Name: ctor.ConstructorName, Export: me.hasExport(ctor.ConstructorName), DataTypeName: ctor.TypeName}
-				if ddctor.Export {
-					me.Exports = append(me.Exports, ctor.TypeName+"ĸ"+ctor.ConstructorName)
+				if expĸ := ctor.TypeName + "ĸ" + ctor.ConstructorName; ddctor.Export && !me.hasExport(expĸ) {
+					me.Exports = append(me.Exports, expĸ)
 				}
 				ddctor.Args = make([]*irPsTypeDataCtorArg, 0, len(ctor.FieldNames))
 				for _, cfn := range ctor.FieldNames {
@@ -191,6 +195,34 @@ func (me *irMeta) populateFromCoreFn() {
 				me.mod.coreFn.RemoveAt(i)
 				i--
 				break // so far true across 700+ real-world PS modules: whenever there's a Constructor inside decl.Binds, the latter has len=1
+			} else if abs := declbind.Expression.Abs; abs != nil {
+				if absv := abs.Body.Var; absv != nil && absv.Value.IsModuleNameNil() && abs.Argument == absv.Value.Identifier {
+					if meta := abs.Meta(); meta != nil && meta.IsNewtype() {
+						if ProjCfg.In.UseExterns && me.mod.coreExt != nil {
+							for _, exp := range me.Exports {
+								if suff := "ĸ" + declbind.Identifier; strings.HasSuffix(exp, suff) {
+									ddtname := exp[:len(exp)-len(suff)]
+									if dd = me.envTypeDataDeclByPsName(ddtname); dd == nil {
+										dd = &irPsTypeDataDef{Name: ddtname}
+										me.EnvTypeDataDecls = append(me.EnvTypeDataDecls, dd)
+									}
+								}
+							}
+						}
+						if dd == nil {
+							tsyn := &irPsNamedTypeRef{Name: declbind.Identifier, Ref: &irPsTypeRef{}}
+							me.EnvTypeSyns = append(me.EnvTypeSyns, tsyn)
+						} else {
+							ddctor := irPsTypeDataCtor{Name: declbind.Identifier, Export: me.hasExport(declbind.Identifier), DataTypeName: dd.Name}
+							ddctor.Args = []*irPsTypeDataCtorArg{&irPsTypeDataCtorArg{Name: abs.Argument}}
+							dd.Ctors = append(dd.Ctors, &ddctor)
+						}
+
+						me.mod.coreFn.RemoveAt(i)
+						i--
+						break // so far true across 700+ real-world PS modules: whenever there's an Abs with Meta.IsNewtype inside decl.Binds, the latter has len=1
+					}
+				}
 			}
 		}
 	}
