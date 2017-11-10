@@ -20,6 +20,7 @@ type Cfg struct {
 		GoNamespaceDeps   string
 	}
 	CodeGen struct {
+		NoTopLevelDeclParenBlocks   bool // if true, every top-level const and var stands alone, not in a var() / const() block
 		TypeSynsForNewtypes         bool // generates for every `data` with only one ctor (that is unary & non-recursive) only a type-synonym instead of a full interface+struct combo
 		TypeSynsForSingletonStructs bool // turns, where feasible, a struct declaration with a single field into a type-synonym to said field's type (eg not feasible if: struct has methods and new underlying type couldn't be method receiver)
 		DataTypeAssertMethods       bool // if true, all `data` interfaces declare methods implemented by all related ctor structs, to be used instead of Go-native type-assertion case-switches

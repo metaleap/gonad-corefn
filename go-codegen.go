@@ -277,33 +277,39 @@ func (me *irAst) codeGenAst(w io.Writer, indent int, ast irA) {
 }
 
 func (me *irAst) codeGenGroupedVals(w io.Writer, consts bool, asts []irA) {
-	if l := len(asts); l == 1 {
-		me.codeGenAst(w, 0, asts[0])
-	} else if l > 1 {
-		if consts {
-			fmt.Fprint(w, "const (\n")
-		} else {
-			fmt.Fprint(w, "var (\n")
-		}
-		valˇnameˇtype := func(a irA) (val irA, name string, typeref *irGoNamedTypeRef) {
-			if ac, _ := a.(*irAConst); ac != nil && consts {
-				val, name, typeref = ac.ConstVal, ac.NameGo, ac.ExprType()
-			} else if av, _ := a.(*irALet); av != nil {
-				val, name, typeref = av.LetVal, av.NameGo, &av.irGoNamedTypeRef
+	if l := len(asts); l > 0 {
+		if l == 1 || ProjCfg.CodeGen.NoTopLevelDeclParenBlocks {
+			for _, a := range asts {
+				me.codeGenAst(w, 0, a)
 			}
-			return
-		}
-		for i, a := range asts {
-			if val, name, typeref := valˇnameˇtype(a); val != nil {
-				me.codeGenAst(w, 1, ªsetVarInGroup(name, val, typeref))
-				if i < (len(asts) - 1) {
-					if _, ok := asts[i+1].(*irAComments); ok {
-						fmt.Fprint(w, "\n")
+		} else {
+			if consts {
+				fmt.Fprint(w, "const (\n")
+			} else {
+				fmt.Fprint(w, "var (\n")
+			}
+			valˇnameˇtype := func(a irA) (val irA, name string, typeref *irGoNamedTypeRef) {
+				if ac, _ := a.(*irAConst); ac != nil && consts {
+					val, name, typeref = ac.ConstVal, ac.NameGo, ac.ExprType()
+				} else if av, _ := a.(*irALet); av != nil {
+					val, name, typeref = av.LetVal, av.NameGo, &av.irGoNamedTypeRef
+				}
+				return
+			}
+			for i, a := range asts {
+				if val, name, typeref := valˇnameˇtype(a); val != nil {
+					setgroup := ªsetVarInGroup(name, val, typeref)
+					setgroup.parent = &me.irABlock
+					me.codeGenAst(w, 1, setgroup)
+					if i < (len(asts) - 1) {
+						if _, ok := asts[i+1].(*irAComments); ok {
+							fmt.Fprint(w, "\n")
+						}
 					}
 				}
 			}
+			fmt.Fprint(w, ")\n\n")
 		}
-		fmt.Fprint(w, ")\n\n")
 	}
 }
 

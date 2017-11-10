@@ -210,8 +210,8 @@ func ªSet(left irA, right irA) *irASet {
 	a := &irASet{SetLeft: left, ToRight: right}
 	a.SetLeft.Base().parent = a
 	if right != nil {
-		a.ToRight.Base().parent = a
-		if rb := right.Base(); rb.hasTypeInfo() {
+		rb := right.Base()
+		if rb.parent = a; rb.hasTypeInfo() {
 			a.irGoNamedTypeRef = rb.irGoNamedTypeRef
 		}
 	}
@@ -221,7 +221,7 @@ func ªSet(left irA, right irA) *irASet {
 func ªsetVarInGroup(namego string, right irA, typespec *irGoNamedTypeRef) *irASet {
 	a := ªSet(ªSymGo(namego), right)
 	if typespec != nil && typespec.hasTypeInfo() {
-		a.irGoNamedTypeRef = *typespec
+		a.copyTypeInfoFrom(typespec) // a.irGoNamedTypeRef = *typespec
 	}
 	a.isInVarGroup = true
 	return a
