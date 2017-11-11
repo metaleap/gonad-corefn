@@ -74,7 +74,6 @@ func (me *modPkg) populatePkgIrMeta() {
 	if me.coreFn == nil {
 		me.irMeta.populateFromLoaded()
 	} else {
-		me.coreFn.Prep()
 		me.irMeta.populateFromCore()
 	}
 }

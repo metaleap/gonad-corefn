@@ -77,34 +77,33 @@ func (me *psPkg) addModPkgFromPsSrcFileIfCoreFiles(relpath string, gopkgdir stri
 		parentPkg: me, srcFilePath: filepath.Join(me.SrcDirPath, relpath),
 		qName: strReplFsSlash2Dot.Replace(relpath[:l]), lName: relpath[i+1 : l],
 	}
-	if modinfo.impFilePath = filepath.Join(ProjCfg.In.CoreFilesDirPath, modinfo.qName, "coreimp.json"); ufs.FileExists(modinfo.impFilePath) {
-		if modinfo.cfnFilePath = filepath.Join(ProjCfg.In.CoreFilesDirPath, modinfo.qName, "corefn.json"); ufs.FileExists(modinfo.cfnFilePath) {
-			modinfo.pName = strReplDot2ꓸ.Replace(modinfo.qName)
-			modinfo.extFilePath = filepath.Join(ProjCfg.In.CoreFilesDirPath, modinfo.qName, "externs.json")
-			modinfo.irMetaFilePath = filepath.Join(ProjCfg.In.CoreFilesDirPath, modinfo.qName, "gonad.json")
-			modinfo.goOutDirPath = relpath[:l]
-			modinfo.goOutFilePath = filepath.Join(modinfo.goOutDirPath, modinfo.qName) + ".go"
-			modinfo.gopkgfilepath = filepath.Join(gopkgdir, modinfo.goOutFilePath)
-			if ufs.FileExists(modinfo.irMetaFilePath) && ufs.FileExists(modinfo.gopkgfilepath) {
-				stalemetaˇcfn, _ := ufs.IsNewerThan(modinfo.cfnFilePath, modinfo.irMetaFilePath)
-				stalepkgˇcfn, _ := ufs.IsNewerThan(modinfo.cfnFilePath, modinfo.gopkgfilepath)
-				if modinfo.reGenIr = stalemetaˇcfn || stalepkgˇcfn; !modinfo.reGenIr {
-					if ProjCfg.In.UseExterns && ufs.FileExists(modinfo.extFilePath) {
-						stalemetaˇext, _ := ufs.IsNewerThan(modinfo.extFilePath, modinfo.irMetaFilePath)
-						stalepkgˇext, _ := ufs.IsNewerThan(modinfo.extFilePath, modinfo.gopkgfilepath)
-						modinfo.reGenIr = modinfo.reGenIr || stalemetaˇext || stalepkgˇext
-					}
-					if ProjCfg.In.UseLegacyCoreImp && ufs.FileExists(modinfo.impFilePath) {
-						stalemetaˇimp, _ := ufs.IsNewerThan(modinfo.impFilePath, modinfo.irMetaFilePath)
-						stalepkgˇimp, _ := ufs.IsNewerThan(modinfo.impFilePath, modinfo.gopkgfilepath)
-						modinfo.reGenIr = modinfo.reGenIr || stalemetaˇimp || stalepkgˇimp
-					}
+	modinfo.pName = strReplDot2ꓸ.Replace(modinfo.qName)
+	if modinfo.cfnFilePath = filepath.Join(ProjCfg.In.CoreFilesDirPath, modinfo.qName, "corefn.json"); ufs.FileExists(modinfo.cfnFilePath) {
+		modinfo.impFilePath = filepath.Join(ProjCfg.In.CoreFilesDirPath, modinfo.qName, "coreimp.json")
+		modinfo.extFilePath = filepath.Join(ProjCfg.In.CoreFilesDirPath, modinfo.qName, "externs.json")
+		modinfo.irMetaFilePath = filepath.Join(ProjCfg.In.CoreFilesDirPath, modinfo.qName, "gonad.json")
+		modinfo.goOutDirPath = relpath[:l]
+		modinfo.goOutFilePath = filepath.Join(modinfo.goOutDirPath, modinfo.qName) + ".go"
+		modinfo.gopkgfilepath = filepath.Join(gopkgdir, modinfo.goOutFilePath)
+		if ufs.FileExists(modinfo.irMetaFilePath) && ufs.FileExists(modinfo.gopkgfilepath) {
+			stalemetaˇcfn, _ := ufs.IsNewerThan(modinfo.cfnFilePath, modinfo.irMetaFilePath)
+			stalepkgˇcfn, _ := ufs.IsNewerThan(modinfo.cfnFilePath, modinfo.gopkgfilepath)
+			if modinfo.reGenIr = stalemetaˇcfn || stalepkgˇcfn; !modinfo.reGenIr {
+				if ProjCfg.In.UseExterns && ufs.FileExists(modinfo.extFilePath) {
+					stalemetaˇext, _ := ufs.IsNewerThan(modinfo.extFilePath, modinfo.irMetaFilePath)
+					stalepkgˇext, _ := ufs.IsNewerThan(modinfo.extFilePath, modinfo.gopkgfilepath)
+					modinfo.reGenIr = modinfo.reGenIr || stalemetaˇext || stalepkgˇext
 				}
-			} else {
-				modinfo.reGenIr = true
+				if ProjCfg.In.UseLegacyCoreImp && ufs.FileExists(modinfo.impFilePath) {
+					stalemetaˇimp, _ := ufs.IsNewerThan(modinfo.impFilePath, modinfo.irMetaFilePath)
+					stalepkgˇimp, _ := ufs.IsNewerThan(modinfo.impFilePath, modinfo.gopkgfilepath)
+					modinfo.reGenIr = modinfo.reGenIr || stalemetaˇimp || stalepkgˇimp
+				}
 			}
-			me.Modules = append(me.Modules, modinfo)
+		} else {
+			modinfo.reGenIr = true
 		}
+		me.Modules = append(me.Modules, modinfo)
 	}
 }
 

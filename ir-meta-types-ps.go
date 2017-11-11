@@ -160,6 +160,7 @@ type irPsTypeRef struct {
 	R  *irPsTypeRefRow         `json:",omitempty"`
 	S  *irPsTypeRefSkolem      `json:",omitempty"`
 	Ts *irPsTypeRefTlStr       `json:",omitempty"`
+	U  *irPsTypeRefUnknown     `json:",omitempty"`
 	V  *irPsTypeRefVar         `json:",omitempty"`
 }
 
@@ -236,6 +237,13 @@ type irPsTypeRefEmpty struct {
 }
 
 func (me *irPsTypeRefEmpty) equiv(cmp *irPsTypeRefEmpty) bool {
+	return (me == nil) == (cmp == nil)
+}
+
+type irPsTypeRefUnknown struct {
+}
+
+func (me *irPsTypeRefUnknown) equiv(cmp *irPsTypeRefUnknown) bool {
 	return (me == nil) == (cmp == nil)
 }
 
@@ -330,6 +338,8 @@ func (me *irMeta) newTRefFromCoreTag(tc *udevps.CoreTagType) *irPsTypeRef {
 		tref.V = &irPsTypeRefVar{Name: tc.Text}
 	} else if tc.IsREmpty() {
 		tref.E = &irPsTypeRefEmpty{}
+	} else if tc.IsTUnknown() {
+		tref.U = &irPsTypeRefUnknown{}
 	} else if tc.IsRCons() {
 		tref.R = &irPsTypeRefRow{
 			Label: tc.Text, Left: me.newTRefFromCoreTag(tc.Type0), Right: me.newTRefFromCoreTag(tc.Type1)}

@@ -163,6 +163,7 @@ func (me *irMeta) populateFromCoreExt() {
 }
 
 func (me *irMeta) populateFromCoreFn() {
+	me.mod.coreFn.Prep()
 	usecfnexports := (!ProjCfg.In.UseExterns) || me.mod.coreExt == nil
 	if usecfnexports {
 		me.Exports = me.mod.coreFn.Exports
