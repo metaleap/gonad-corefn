@@ -77,7 +77,7 @@ func (me *irABase) perFuncUp(on func(*irAFunc)) {
 }
 
 func (me *irAst) topLevelDefs(okay funcIra2Bool) (defs []irA) {
-	for _, ast := range me.Body {
+	for _, ast := range me.Block.Body {
 		if okay == nil || okay(ast) {
 			defs = append(defs, ast)
 		}
@@ -86,15 +86,15 @@ func (me *irAst) topLevelDefs(okay funcIra2Bool) (defs []irA) {
 }
 
 func (me *irAst) walkTopLevelDefs(on func(irA)) {
-	for _, ast := range me.Body {
+	for _, ast := range me.Block.Body {
 		on(ast)
 	}
 }
 
 func (me *irAst) walk(on funcIra2Ira) {
-	for i, a := range me.Body {
+	for i, a := range me.Block.Body {
 		if a != nil {
-			me.Body[i] = walk(a, true, on)
+			me.Block.Body[i] = walk(a, true, on)
 		}
 	}
 	for _, tr := range me.irM.GoTypeDefs {

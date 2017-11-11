@@ -98,7 +98,7 @@ func (me *modPkg) reGenPkgIrMeta() (err error) {
 
 func (me *modPkg) prepIrAst() {
 	me.irAst = &irAst{mod: me, irM: me.irMeta}
-	me.irAst.irABlock.root = me.irAst
+	me.irAst.Block.root = me.irAst
 	me.irAst.prepFromCore()
 }
 

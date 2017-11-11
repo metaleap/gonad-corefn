@@ -77,20 +77,6 @@ func main() {
 	}
 }
 
-func confirmNoOutDirConflicts() { // double-checking stuff that seriously just never ever happens thanks to purs/pulp's own checks? check.
-	gooutdirs := map[string]*psPkg{}
-	for _, dep := range Deps {
-		for _, mod := range dep.Modules {
-			modoutdirpath := filepath.Join(dep.GoOut.PkgDirPath, mod.goOutDirPath)
-			if prev := gooutdirs[modoutdirpath]; prev == nil {
-				gooutdirs[modoutdirpath] = dep
-			} else {
-				panic(fmt.Sprintf("Conflicting Go output packages: '%s' and '%s' would end up in %s", prev.BowerJsonFile.Name, dep.BowerJsonFile.Name, modoutdirpath))
-			}
-		}
-	}
-}
-
 func countNumOfReGendModules(allpkgimppaths map[string]bool) (numregen int, numtotal int) {
 	for _, dep := range Deps {
 		for _, mod := range dep.Modules {
@@ -103,10 +89,6 @@ func countNumOfReGendModules(allpkgimppaths map[string]bool) (numregen int, numt
 }
 
 func writeTestMainGo(allpkgimppaths map[string]bool) (err error) {
-	w := &bytes.Buffer{}
-	fmt.Fprintln(w, "package main\n\nimport (")
-
-	// temporary commandline option to only import a sub-set of packages
 	okpkgs := []string{}
 	for i := 0; i < ProjCfg.Out.MainDepLevel; i++ {
 		thisok := []string{}
@@ -143,12 +125,14 @@ func writeTestMainGo(allpkgimppaths map[string]bool) (err error) {
 		pkgimppaths = append(pkgimppaths, pkgimppath)
 	}
 	sort.Strings(pkgimppaths)
+
+	w := bytes.NewBufferString("package main\n\nimport (\n")
 	for _, pkgimppath := range pkgimppaths {
 		if _, err = fmt.Fprintf(w, "\t_ %q\n", pkgimppath); err != nil {
 			return
 		}
 	}
-	if _, err = fmt.Fprintln(w, ")\n\nfunc main() { println(\"Looks like this compiled just fine!\") }"); err == nil {
+	if _, err = fmt.Fprintf(w, ")\n\nfunc main() { println(%q) }\n", "Looks like this compiled just fine!"); err == nil {
 		err = ufs.WriteTextFile(filepath.Join(ProjCfg.Out.GoDirSrcPath, Proj.GoOut.PkgDirPath, "check-if-all-gonad-generated-packages-compile.go"), w.String())
 	}
 	return

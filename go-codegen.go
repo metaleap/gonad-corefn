@@ -15,13 +15,13 @@ const (
 	areOverlappingInterfacesSupportedByGo = true // technically would be false, see https://github.com/golang/go/issues/6977 --- in practice keep true until it becomes an actual issue in generated code
 )
 
-func (_ *irAst) codeGenCommaIf(w io.Writer, i int) {
+func (irAst) codeGenCommaIf(w io.Writer, i int) {
 	if i > 0 {
 		fmt.Fprint(w, ", ")
 	}
 }
 
-func (_ *irAst) codeGenComments(w io.Writer, singlelineprefix string, withcomments *irABase) (err error) {
+func (irAst) codeGenComments(w io.Writer, singlelineprefix string, withcomments *irABase) (err error) {
 	for _, c := range withcomments.Comments {
 		if c.BlockComment != "" {
 			_, err = fmt.Fprintf(w, "/*%s*/", c.BlockComment)
@@ -305,7 +305,7 @@ func (me *irAst) codeGenGroupedVals(w io.Writer, consts bool, asts []irA) {
 			for i, a := range asts {
 				if val, name, typeref := valˇnameˇtype(a); val != nil {
 					setgroup := ªsetVarInGroup(name, val, typeref)
-					setgroup.parent = &me.irABlock
+					setgroup.parent = &me.Block
 					me.codeGenAst(w, 1, setgroup)
 					if i < (len(asts) - 1) {
 						if _, ok := asts[i+1].(*irAComments); ok {
@@ -385,15 +385,15 @@ func (me *irAst) codeGenPkgDecl(w io.Writer) (err error) {
 
 func (me *irAst) codeGenStructMethods(w io.Writer, tr *irGoNamedTypeRef) {
 	for _, method := range tr.Methods {
-		mthis := "_"
+		mthis := ""
 		if method.Ref.F.hasthis {
-			mthis = ProjCfg.CodeGen.Fmt.Method_ThisName
+			mthis = ProjCfg.CodeGen.Fmt.Method_ThisName + " "
 		}
 		tthis := tr.NameGo
-		if tr.Ref.E == nil && (method.Ref.origCtor != nil || (tr.Ref.S != nil && tr.Ref.S.PassByPtr)) {
+		if tr.Ref.E == nil && (method.Ref.origCtor != nil || (tr.Ref.S != nil && tr.Ref.S.PassByPtr)) && mthis != "" {
 			tthis = "*" + tthis
 		}
-		fmt.Fprintf(w, "func (%s %s) %s", mthis, tthis, method.NameGo)
+		fmt.Fprintf(w, "func (%s%s) %s", mthis, tthis, method.NameGo)
 		me.codeGenFuncArgs(w, -1, method.Ref.F.Args, false, true)
 		me.codeGenFuncArgs(w, -1, method.Ref.F.Rets, true, true)
 		fmt.Fprint(w, " ")

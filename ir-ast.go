@@ -19,7 +19,7 @@ var (
 )
 
 type irAst struct {
-	irABlock
+	Block irABlock
 
 	culled struct {
 		typeCtorFuncs []*irACtor
@@ -72,7 +72,7 @@ func (me *irABase) Equiv(cmp irA) bool {
 }
 
 func (me *irABase) isTopLevel() bool {
-	return me.parent == &me.Ast().irABlock
+	return me.parent == &me.Ast().Block
 }
 
 func (me *irABase) parentOp() (po1 *irAOp1, po2 *irAOp2) {
@@ -280,8 +280,8 @@ type irALitStr struct {
 	LitStr string
 }
 
-func (_ *irALitStr) ExprType() *irGoNamedTypeRef { return exprTypeStr }
-func (me *irALitStr) isConstable() bool          { return true }
+func (irALitStr) ExprType() *irGoNamedTypeRef { return exprTypeStr }
+func (me *irALitStr) isConstable() bool       { return true }
 
 func (me *irALitStr) Equiv(cmp irA) bool {
 	c, _ := cmp.(*irALitStr)
@@ -293,8 +293,8 @@ type irALitBool struct {
 	LitBool bool
 }
 
-func (_ *irALitBool) ExprType() *irGoNamedTypeRef { return exprTypeBool }
-func (_ irALitBool) isConstable() bool            { return true }
+func (irALitBool) ExprType() *irGoNamedTypeRef { return exprTypeBool }
+func (irALitBool) isConstable() bool           { return true }
 
 func (me *irALitBool) Equiv(cmp irA) bool {
 	c, _ := cmp.(*irALitBool)
@@ -306,8 +306,8 @@ type irALitNum struct {
 	LitNum float64
 }
 
-func (_ *irALitNum) ExprType() *irGoNamedTypeRef { return exprTypeNum }
-func (_ irALitNum) isConstable() bool            { return true }
+func (irALitNum) ExprType() *irGoNamedTypeRef { return exprTypeNum }
+func (irALitNum) isConstable() bool           { return true }
 
 func (me *irALitNum) Equiv(cmp irA) bool {
 	c, _ := cmp.(*irALitNum)
@@ -324,8 +324,8 @@ func (me *irALitInt) Equiv(cmp irA) bool {
 	return (me == nil && c == nil) || (me != nil && c != nil && me.LitInt == c.LitInt)
 }
 
-func (_ *irALitInt) ExprType() *irGoNamedTypeRef { return exprTypeInt }
-func (_ irALitInt) isConstable() bool            { return true }
+func (irALitInt) ExprType() *irGoNamedTypeRef { return exprTypeInt }
+func (irALitInt) isConstable() bool           { return true }
 
 type irALitChar struct {
 	irABase
@@ -337,8 +337,8 @@ func (me *irALitChar) Equiv(cmp irA) bool {
 	return (me == nil && c == nil) || (me != nil && c != nil && me.LitChar == c.LitChar)
 }
 
-func (_ *irALitChar) ExprType() *irGoNamedTypeRef { return exprTypeChar }
-func (_ irALitChar) isConstable() bool            { return true }
+func (irALitChar) ExprType() *irGoNamedTypeRef { return exprTypeChar }
+func (irALitChar) isConstable() bool           { return true }
 
 type irABlock struct {
 	irABase
@@ -571,7 +571,7 @@ type irAIf struct {
 	Else *irABlock
 }
 
-func (_ *irAIf) ExprType() *irGoNamedTypeRef { return exprTypeBool }
+func (irAIf) ExprType() *irGoNamedTypeRef { return exprTypeBool }
 
 func (me *irAIf) condNegates(other *irAIf) bool {
 	mop, _ := me.If.(*irAOp1)
@@ -771,7 +771,7 @@ func (me *irAIsType) Equiv(cmp irA) bool {
 	return (me == nil && c == nil) || (me != nil && c != nil && me.TypeToTest == c.TypeToTest && me.names == c.names && me.ExprToTest.Equiv(c.ExprToTest))
 }
 
-func (_ *irAIsType) ExprType() *irGoNamedTypeRef { return exprTypeBool }
+func (irAIsType) ExprType() *irGoNamedTypeRef { return exprTypeBool }
 
 type irAToType struct {
 	irABase
@@ -862,7 +862,7 @@ func (me *irAst) writeAsGoTo(writer io.Writer) (err error) {
 			_, err = fmt.Fprint(writer, "// \n")
 		}
 		if err == nil {
-			err = me.codeGenComments(writer, "", &me.irABase)
+			err = me.codeGenComments(writer, "", &me.Block.irABase)
 		}
 	}
 	if err == nil {

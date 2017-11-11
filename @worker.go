@@ -13,6 +13,20 @@ type mainWorker struct {
 	sync.WaitGroup
 }
 
+func (mainWorker) confirmNoOutDirConflicts() { // double-checking stuff that seriously just never ever happens thanks to purs/pulp's own checks? check.
+	gooutdirs := map[string]*psPkg{}
+	for _, dep := range Deps {
+		for _, mod := range dep.Modules {
+			modoutdirpath := filepath.Join(dep.GoOut.PkgDirPath, mod.goOutDirPath)
+			if prev := gooutdirs[modoutdirpath]; prev == nil {
+				gooutdirs[modoutdirpath] = dep
+			} else {
+				panic(fmt.Sprintf("Conflicting Go output packages: '%s' and '%s' would end up in %s", prev.BowerJsonFile.Name, dep.BowerJsonFile.Name, modoutdirpath))
+			}
+		}
+	}
+}
+
 func (me *mainWorker) forAllDeps(fn func(*psPkg)) {
 	f := func(dep *psPkg) {
 		defer me.Done()
@@ -25,7 +39,7 @@ func (me *mainWorker) forAllDeps(fn func(*psPkg)) {
 	me.Wait()
 }
 
-func (_ *mainWorker) maybeFilterDepsThenEnsureDepOutDirs() {
+func (me *mainWorker) maybeFilterDepsThenEnsureDepOutDirs() {
 	if !ProjCfg.Out.IncludeUnusedDeps {
 		prevcount := len(Deps) - 1 // Deps minus the Proj, just for the below msg
 		Proj.shakeOutStaleDeps()
@@ -33,8 +47,8 @@ func (_ *mainWorker) maybeFilterDepsThenEnsureDepOutDirs() {
 			fmt.Printf("(Ignoring %d unused dependency packages out of %d candidates in %s, processing just %d)\n", prevcount-curcount, prevcount, Proj.DepsDirPath, curcount)
 		}
 	}
-	confirmNoOutDirConflicts() // before we create numerous out-dir hierarchies, so as to not abort half-way through..
-	for _, dep := range Deps { // not in parallel because many sub-path overlaps
+	me.confirmNoOutDirConflicts() // before we create numerous out-dir hierarchies, so as to not abort half-way through..
+	for _, dep := range Deps {    // not in parallel because many sub-path overlaps
 		dep.ensureOutDirs()
 	}
 }

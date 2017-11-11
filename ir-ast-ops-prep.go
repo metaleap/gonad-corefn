@@ -1,10 +1,10 @@
 package main
 
 func (me *irAst) prepFromCore() {
-	me.Comments = me.mod.coreFn.Comments
+	me.Block.Comments = me.mod.coreFn.Comments
 
 	for i, _ := range me.mod.coreFn.Decls {
-		me.intoFromˇDecl(&me.irABlock, &me.mod.coreFn.Decls[i])
+		me.intoFromˇDecl(&me.Block, &me.mod.coreFn.Decls[i])
 	}
 
 	me.prepInitialFixups()
