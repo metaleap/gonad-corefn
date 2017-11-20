@@ -13,7 +13,7 @@ type mainWorker struct {
 	sync.WaitGroup
 }
 
-func (mainWorker) confirmNoOutDirConflicts() { // double-checking stuff that seriously just never ever happens thanks to purs/pulp's own checks? check.
+func (*mainWorker) confirmNoOutDirConflicts() { // double-checking stuff that seriously just never ever happens thanks to purs/pulp's own checks? check.
 	gooutdirs := map[string]*psPkg{}
 	for _, dep := range Deps {
 		for _, mod := range dep.Modules {

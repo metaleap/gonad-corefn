@@ -190,9 +190,8 @@ func (me *irASym) Equiv(sym irA) bool {
 	if s != nil && me != nil {
 		if me.NameGo != "" && s.NameGo != "" {
 			return me.NameGo == s.NameGo
-		} else {
-			return me.NamePs == s.NamePs
 		}
+		return me.NamePs == s.NamePs
 	}
 	return s == nil && me == nil
 }

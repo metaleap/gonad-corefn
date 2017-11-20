@@ -115,13 +115,13 @@ func walk(ast irA, intofuncvals bool, on funcIra2Ira) irA {
 		// why extra nil checks some places below: we do have the rare case of ast!=nil and ast.(type) set and still holding a null-ptr
 		case *irABlock:
 			if a != nil {
-				for i, _ := range a.Body {
+				for i := range a.Body {
 					a.Body[i] = walk(a.Body[i], intofuncvals, on)
 				}
 			}
 		case *irACall:
 			a.Callee = walk(a.Callee, intofuncvals, on)
-			for i, _ := range a.CallArgs {
+			for i := range a.CallArgs {
 				a.CallArgs[i] = walk(a.CallArgs[i], intofuncvals, on)
 			}
 		case *irAConst:

@@ -9,7 +9,7 @@ import (
 )
 
 func (me *irAst) intoFromˇDecl(into *irABlock, decl *udevps.CoreFnDecl) {
-	for i, _ := range decl.Binds {
+	for i := range decl.Binds {
 		into.add(me.fromˇDeclBind(into.parent == nil, &decl.Binds[i]))
 	}
 }
@@ -82,10 +82,10 @@ func (me *irAst) fromˇExprAcc(xacc *udevps.CoreFnExprAcc) *irADot {
 func (me *irAst) fromˇExprCase(xcase *udevps.CoreFnExprCase) *irASwitch {
 	alts := make([]*irACase, 0, len(xcase.Alternatives))
 	exprs := make([]irA, 0, len(xcase.Expressions))
-	for i, _ := range xcase.Alternatives {
+	for i := range xcase.Alternatives {
 		alts = append(alts, me.fromˇExprCaseAlt(&xcase.Alternatives[i]))
 	}
-	for i, _ := range xcase.Expressions {
+	for i := range xcase.Expressions {
 		exprs = append(exprs, me.fromˇExpr(&xcase.Expressions[i]))
 	}
 	return ªSwitch(ªSymGo("exprs0?"), alts)
@@ -98,7 +98,7 @@ func (me *irAst) fromˇExprCaseAlt(xcasealt *udevps.CoreFnExprCaseAlt) *irACase 
 func (me *irAst) fromˇExprLet(xlet *udevps.CoreFnExprLet) *irACall {
 	af := ªFunc(nil)
 	af.Ref.F.Rets = irGoNamedTypeRefs{&irGoNamedTypeRef{}}
-	for i, _ := range xlet.Binds {
+	for i := range xlet.Binds {
 		me.intoFromˇDecl(af.FuncImpl, &xlet.Binds[i])
 	}
 	af.FuncImpl.add(ªRet(me.fromˇExpr(&xlet.Expression)))
@@ -121,30 +121,28 @@ func (me *irAst) fromˇExprLit(xlit *udevps.CoreFnExprLit) irA {
 	case "ArrayLiteral":
 		if len(xlv.ArrayOfBinders) > 0 {
 			return ªSymGo("MUH_HOW_WHY_AoB")
-		} else {
-			arr, l := ªA(), len(xlv.Array)
-			all := make([]irA, l, l)
-			for i, _ := range xlv.Array {
-				elem := me.fromˇExpr(&xlv.Array[i])
-				elem.Base().parent = arr
-				all[i] = elem
-			}
-			arr.ArrVals = all
-			return arr
 		}
+		arr, l := ªA(), len(xlv.Array)
+		all := make([]irA, l, l)
+		for i := range xlv.Array {
+			elem := me.fromˇExpr(&xlv.Array[i])
+			elem.Base().parent = arr
+			all[i] = elem
+		}
+		arr.ArrVals = all
+		return arr
 	case "ObjectLiteral":
 		objctor := ªO(nil)
 		for _, litobjfld := range xlv.Obj {
 			if litobjfld.Binder != nil {
 				return ªSymGo("MUH_HOW_WHY_OoB")
-			} else {
-				ofld := ªOFld(nil)
-				ofld.parent = objctor
-				ofld.FieldVal = me.fromˇExpr(litobjfld.Val)
-				ofld.FieldVal.Base().parent = ofld
-				ofld.Export = true
-				ofld.setBothNamesFromPsName(litobjfld.Name)
 			}
+			ofld := ªOFld(nil)
+			ofld.parent = objctor
+			ofld.FieldVal = me.fromˇExpr(litobjfld.Val)
+			ofld.FieldVal.Base().parent = ofld
+			ofld.Export = true
+			ofld.setBothNamesFromPsName(litobjfld.Name)
 		}
 		return objctor
 	default:
@@ -166,9 +164,8 @@ func (me *irAst) fromˇIdent(xid *udevps.CoreFnIdent) irA {
 		if qname := strings.Join(xid.ModuleName, "."); qname == "Prim" {
 			if xid.Identifier == "undefined" {
 				return ªNil(udevps.CoreComment{BlockComment: "undefined"})
-			} else {
-				panic(notImplErr("Prim ident", xid.Identifier, me.mod.cfnFilePath))
 			}
+			panic(notImplErr("Prim ident", xid.Identifier, me.mod.cfnFilePath))
 		} else if mod = findModuleByQName(qname); mod == nil {
 			panic(notImplErr("unresolvable module reference", qname, me.mod.cfnFilePath))
 			// } else /*not needed: whenever this is true the below is already in-place*/ if mod.qName == me.mod.qName {

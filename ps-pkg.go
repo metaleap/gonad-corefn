@@ -209,7 +209,7 @@ func (me *psPkg) shakeOutStaleDeps() {
 			}
 		}
 	}
-	for subdep, _ := range pkgs2check {
+	for subdep := range pkgs2check {
 		subdep.shakeOutStaleDeps()
 	}
 

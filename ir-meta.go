@@ -172,7 +172,7 @@ func (me *irMeta) populateFromCoreFn() {
 	}
 	for i := 0; i < len(me.mod.coreFn.Decls); i++ {
 		decl := &me.mod.coreFn.Decls[i]
-		for j, _ := range decl.Binds {
+		for j := range decl.Binds {
 			declbind := &decl.Binds[j]
 			var dd *irPsTypeDataDef
 			if ctor := declbind.Expression.Constructor; ctor != nil {

@@ -113,7 +113,7 @@ func writeTestMainGo(allpkgimppaths map[string]bool) (err error) {
 		}
 		okpkgs = append(okpkgs, thisok...)
 	}
-	for pkgimppath, _ := range allpkgimppaths {
+	for pkgimppath := range allpkgimppaths {
 		if !uslice.StrHas(okpkgs, pkgimppath) {
 			delete(allpkgimppaths, pkgimppath)
 		}
@@ -121,7 +121,7 @@ func writeTestMainGo(allpkgimppaths map[string]bool) (err error) {
 
 	//	we sort them
 	pkgimppaths := sort.StringSlice{}
-	for pkgimppath, _ := range allpkgimppaths {
+	for pkgimppath := range allpkgimppaths {
 		pkgimppaths = append(pkgimppaths, pkgimppath)
 	}
 	sort.Strings(pkgimppaths)

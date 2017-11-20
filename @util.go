@@ -111,9 +111,8 @@ func findGoTypeByPsQName(curmod *modPkg, qname string) (*modPkg, *irGoNamedTypeR
 		if mod == nil {
 			if pname == "Prim" {
 				return nil, nil
-			} else {
-				panic(notImplErr("module qname", pname, qname))
 			}
+				panic(notImplErr("module qname", pname, qname))
 		}
 	}
 	return mod, mod.irMeta.goTypeDefByPsName(tname, false)
