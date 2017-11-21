@@ -20,7 +20,7 @@ const (
 )
 
 var (
-	//ꓸ۰٠ᛌᚲߺ
+	//ꓸ۰٠ߺ  nope: ᛌ ᚲ
 	strReplˈ2Slash      = strings.NewReplacer("ˈ", "/")
 	strReplDot2ˈ        = strings.NewReplacer(".", "ˈ")
 	strReplDot2ꓸ        = strings.NewReplacer(".", "ꓸ")
@@ -31,6 +31,12 @@ var (
 	strReplSanitizer  = strings.NewReplacer("'", "ˈ", "$", "ᵒ", " ", "ˉ", ":", "ꓽ")
 	strReplUnsanitize = strings.NewReplacer("$prime", "'", "$$", "")
 )
+
+func deferr(err *error, fn func() error) {
+	if e := fn(); e != nil && (*err) == nil {
+		*err = e
+	}
+}
 
 func init() {
 	udevps.NotImplErr = notImplErr
@@ -112,7 +118,7 @@ func findGoTypeByPsQName(curmod *modPkg, qname string) (*modPkg, *irGoNamedTypeR
 			if pname == "Prim" {
 				return nil, nil
 			}
-				panic(notImplErr("module qname", pname, qname))
+			panic(notImplErr("module qname", pname, qname))
 		}
 	}
 	return mod, mod.irMeta.goTypeDefByPsName(tname, false)

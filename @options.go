@@ -65,10 +65,10 @@ func (me *Cfg) populateDefaultsUponLoaded() {
 
 	fmts := &me.CodeGen.Fmt
 	if fmts.StructName_InstImpl == "" {
-		fmts.StructName_InstImpl = "ᛌ%s"
+		fmts.StructName_InstImpl = "ˉ%s"
 	}
 	if fmts.IfaceName_TypeClass == "" {
-		fmts.IfaceName_TypeClass = "%sᛌ"
+		fmts.IfaceName_TypeClass = "%sˉ"
 	}
 	if fmts.StructName_DataCtor == "" {
 		fmts.StructName_DataCtor = "{D}۰{C}"

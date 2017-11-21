@@ -161,9 +161,9 @@ func (me *psPkg) moduleByQName(qname string) *modPkg {
 
 func (me *psPkg) moduleByPName(pname string) *modPkg {
 	if pname != "" {
-		pᛌname := strReplUnderscore2ꓸ.Replace(pname)
+		pˈname := strReplUnderscore2ꓸ.Replace(pname)
 		for _, m := range me.Modules {
-			if m.pName == pᛌname || m.pName == pname {
+			if m.pName == pˈname || m.pName == pname {
 				return m
 			}
 		}

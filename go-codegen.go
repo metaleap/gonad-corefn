@@ -164,7 +164,7 @@ func (me *irAst) codeGenAst(w io.Writer, indent int, ast irA) {
 		fmt.Fprint(w, " ")
 		me.codeGenAst(w, indent, a.FuncImpl)
 	case *irAComments:
-		me.codeGenComments(w, tabs, &a.irABase)
+		_ = me.codeGenComments(w, tabs, &a.irABase)
 	case *irARet:
 		if a.RetArg == nil {
 			fmt.Fprintf(w, "%sreturn", tabs)
