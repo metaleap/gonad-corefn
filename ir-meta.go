@@ -215,7 +215,7 @@ func (me *irMeta) populateFromCoreFn() {
 							me.EnvTypeSyns = append(me.EnvTypeSyns, tsyn)
 						} else {
 							ddctor := irPsTypeDataCtor{Name: declbind.Identifier, Export: me.hasExport(declbind.Identifier), DataTypeName: dd.Name}
-							ddctor.Args = []*irPsTypeDataCtorArg{&irPsTypeDataCtorArg{Name: abs.Argument}}
+							ddctor.Args = []*irPsTypeDataCtorArg{{Name: abs.Argument}}
 							dd.Ctors = append(dd.Ctors, &ddctor)
 						}
 
