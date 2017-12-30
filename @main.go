@@ -14,6 +14,16 @@ import (
 	"github.com/metaleap/go-util/slice"
 )
 
+/*
+https://github.com/jozefg/graph-models/blob/master/graphs.pdf
+http://matt.might.net/articles/compiling-up-to-lambda-calculus/
+http://kestas.kuliukas.com/YCombinatorExplained/
+http://matt.might.net/articles/implementation-of-recursive-fixed-point-y-combinator-in-javascript-for-memoization/
+http://www.pipeline.com/~hbaker1/Use1Var.html
+http://wiki.c2.com/?LinearTypes
+https://en.wikipedia.org/wiki/Substructural_type_system
+*/
+
 var (
 	Proj    psPkg
 	ProjCfg *Cfg // nil UNTIL set once after successful load by Proj --- then it points to Proj.BowerJsonFile.Gonad field
